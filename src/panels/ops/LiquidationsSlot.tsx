@@ -1,34 +1,177 @@
-// OWNER: Agent C (Hamza). Placeholder from Agent A; replace the body freely.
-// Row click should call selectUser(id) then openDrawer('user').
+import { useMemo } from 'react';
 import { useStore } from '../../core/store';
 import { fmtPct, fmtT, fmtUSD } from '../../core/format';
-import { Panel, SlotPlaceholder } from '../../ui/Panel';
+import { Panel, Pill } from '../../ui/Panel';
 
 export function LiquidationsSlot() {
   const liquidations = useStore((s) => s.liquidations);
-  const { selectUser, openDrawer } = useStore.getState();
+  const bandPct = useStore((s) => s.bandPct);
+  const selectUser = useStore((s) => s.selectUser);
+  const openDrawer = useStore((s) => s.openDrawer);
+
+  const { makegoodsCount, noMakegoodsCount, totalOwed } = useMemo(() => {
+    let makegoods = 0;
+    let noMakegoods = 0;
+    let owed = 0;
+    for (const l of liquidations) {
+      if (l.verdict === 'makegood') {
+        makegoods++;
+        owed += l.amountOwed;
+      } else if (l.verdict === 'no_makegood') {
+        noMakegoods++;
+      }
+    }
+    return {
+      makegoodsCount: makegoods,
+      noMakegoodsCount: noMakegoods,
+      totalOwed: Math.round(owed * 100) / 100,
+    };
+  }, [liquidations]);
+
+  const handleRowClick = (userId: string) => {
+    selectUser(userId);
+    openDrawer('user');
+  };
+
   return (
-    <Panel title="Liquidations" subtitle={`${liquidations.length} so far`}>
-      <SlotPlaceholder owner="Agent C (liquidations table)">
-        <div className="max-h-40 space-y-0.5 overflow-auto">
-          {liquidations
-            .slice(-6)
-            .reverse()
-            .map((l) => (
-              <button
-                key={l.id}
-                className="num block w-full text-left hover:text-cyan"
-                onClick={() => {
-                  selectUser(l.userId);
-                  openDrawer('user');
-                }}
-              >
-                {fmtT(l.t)} {l.userName} {l.side} {fmtUSD(l.referenceMedian)} / {fmtUSD(l.executionPrice)}{' '}
-                {l.deviationPct === null ? 'awaiting test' : `${fmtPct(l.deviationPct)} ${l.verdict}`}
-              </button>
-            ))}
+    <Panel
+      title="Liquidations & Deviation Audit"
+      subtitle={`${liquidations.length} positions liquidated · Click any row for user view`}
+      right={
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone="muted">Total: {liquidations.length}</Pill>
+          <Pill tone={makegoodsCount > 0 ? 'orange' : 'green'}>
+            Makegoods: {makegoodsCount}
+          </Pill>
+          <Pill tone="muted">No makegood: {noMakegoodsCount}</Pill>
+          <Pill tone={totalOwed > 0 ? 'cyan' : 'muted'}>
+            Owed: {fmtUSD(totalOwed)}
+          </Pill>
         </div>
-      </SlotPlaceholder>
+      }
+    >
+      <div className="flex max-h-[380px] flex-col overflow-hidden rounded-lg border border-line bg-surface-2/40">
+        <div className="overflow-x-auto overflow-y-auto">
+          <table className="w-full text-left text-xs whitespace-nowrap">
+            <thead className="sticky top-0 z-10 border-b border-line bg-surface-2 text-[11px] font-semibold text-muted uppercase">
+              <tr>
+                <th className="px-3 py-2.5">Time</th>
+                <th className="px-3 py-2.5">User</th>
+                <th className="px-3 py-2.5">Side</th>
+                <th className="px-3 py-2.5 text-right">Qty</th>
+                <th className="px-3 py-2.5 text-right">Ref Median</th>
+                <th className="px-3 py-2.5 text-right">Our Price</th>
+                <th className="px-3 py-2.5 text-right">Deviation %</th>
+                <th className="px-3 py-2.5 text-center">Verdict</th>
+                <th className="px-3 py-2.5 text-right">Amount Owed</th>
+                <th className="px-3 py-2.5 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/40">
+              {liquidations.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-3 py-8 text-center text-muted">
+                    No liquidations recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                liquidations
+                  .slice()
+                  .reverse()
+                  .map((l) => {
+                    const isExceedingBand =
+                      l.deviationPct !== null && l.deviationPct > bandPct;
+                    const isAwaiting = l.status === 'untested' || l.deviationPct === null;
+
+                    return (
+                      <tr
+                        key={l.id}
+                        onClick={() => handleRowClick(l.userId)}
+                        className="cursor-pointer transition-colors hover:bg-surface/80 hover:text-cyan"
+                        title="Click to view user detail"
+                      >
+                        <td className="num px-3 py-2 text-muted">{fmtT(l.t)}</td>
+                        <td className="px-3 py-2 font-medium text-ink">{l.userName}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                              l.side === 'long'
+                                ? 'bg-green/10 text-green'
+                                : 'bg-orange/10 text-orange'
+                            }`}
+                          >
+                            {l.side}
+                          </span>
+                        </td>
+                        <td className="num px-3 py-2 text-right text-ink/90">
+                          {l.qty}
+                        </td>
+                        <td className="num px-3 py-2 text-right text-muted">
+                          {fmtUSD(l.referenceMedian)}
+                        </td>
+                        <td className="num px-3 py-2 text-right text-ink">
+                          {fmtUSD(l.executionPrice)}
+                        </td>
+                        <td
+                          className={`num px-3 py-2 text-right font-medium ${
+                            isAwaiting
+                              ? 'text-muted italic'
+                              : isExceedingBand
+                              ? 'text-orange font-semibold'
+                              : 'text-green'
+                          }`}
+                        >
+                          {isAwaiting ? (
+                            <span className="text-[11px] text-muted">Awaiting test</span>
+                          ) : (
+                            fmtPct(l.deviationPct!)
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {isAwaiting ? (
+                            <span className="text-muted">—</span>
+                          ) : l.verdict === 'makegood' ? (
+                            <span className="rounded-full border border-orange/40 bg-orange/10 px-2 py-0.5 text-[10px] font-semibold text-orange">
+                              Makegood
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-line bg-surface px-2 py-0.5 text-[10px] text-muted">
+                              No makegood
+                            </span>
+                          )}
+                        </td>
+                        <td className="num px-3 py-2 text-right font-medium">
+                          {l.amountOwed > 0 ? (
+                            <span className="text-orange">{fmtUSD(l.amountOwed)}</span>
+                          ) : (
+                            <span className="text-muted">$0.00</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-medium capitalize ${
+                              l.status === 'paid'
+                                ? 'bg-green/15 text-green'
+                                : l.status === 'confirmed'
+                                ? 'bg-cyan/15 text-cyan'
+                                : l.status === 'queued'
+                                ? 'bg-orange/15 text-orange'
+                                : l.status === 'tested'
+                                ? 'bg-surface text-ink'
+                                : 'text-muted'
+                            }`}
+                          >
+                            {l.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </Panel>
   );
 }
