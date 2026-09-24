@@ -61,7 +61,10 @@ export const TEMPLATES: Template[] = [
             body:
               `We tested every liquidation against the reference median. ${users(ctx.makegoodCount)} were liquidated more than ` +
               `${fmtPct(ctx.bandPct)} away from it, so our price was wrong for them. Makegoods totalling ${fmtUSD(ctx.totalOwed)} ` +
-              `are queued and will be paid from the Integrity Reserve (balance ${fmtUSD(ctx.reserveBalance)}).`,
+              `are queued and will be paid from the Integrity Reserve (balance ${fmtUSD(ctx.reserveBalance)}).` +
+              (ctx.totalOwed > ctx.reserveBalance
+                ? ` That is less than we owe, so every makegood will be paid pro-rata (${fmtPct((ctx.reserveBalance / ctx.totalOwed) * 100, 1)}) and the shortfall disclosed.`
+                : ''),
           }
         : {
             title: 'Deviation test complete: no makegoods owed',
@@ -78,12 +81,18 @@ export const TEMPLATES: Template[] = [
     scenarios: 'all',
     build: (ctx) => {
       if (ctx.makegoodCount > 0) {
+        const payment =
+          ctx.totalPaid === 0
+            ? `being paid from the Integrity Reserve (balance ${fmtUSD(ctx.reserveBalance)})`
+            : ctx.paidRatio < 1
+              ? `but the Integrity Reserve covered only ${fmtUSD(ctx.totalPaid)}. We paid every user pro-rata (${fmtPct(ctx.paidRatio * 100, 1)}) ` +
+                `and owe the ${fmtUSD(ctx.totalOwed - ctx.totalPaid)} shortfall`
+              : `paid in full from the Integrity Reserve (balance now ${fmtUSD(ctx.reserveBalance)})`;
         return {
           title: 'Our price was wrong. Here is the data and what we owe.',
           body:
             `During today's move, ${users(ctx.makegoodCount)} were liquidated more than ${fmtPct(ctx.bandPct)} from the ` +
-            `3-feed reference median. We owe them ${fmtUSD(ctx.totalOwed)}, paid from the Integrity Reserve ` +
-            `(balance ${fmtUSD(ctx.reserveBalance)}). Makegoods restore positions; they never pay profit. ` +
+            `3-feed reference median. We owe them ${fmtUSD(ctx.totalOwed)}, ${payment}. Makegoods restore positions; they never pay profit. ` +
             'Feed data and every verdict are on our status page.',
         };
       }

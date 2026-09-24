@@ -2,7 +2,7 @@
 // Rendered inside the shared drawer shell when activeDrawer === 'user'; reads selectedUserId.
 import { Bell } from 'lucide-react';
 import { useStore } from '../../core/store';
-import { T } from '../../core/engine';
+import { payoutSummary, T } from '../../core/engine';
 import { fmtPct, fmtT, fmtUSD } from '../../core/format';
 import type { Liquidation } from '../../core/types';
 
@@ -15,7 +15,7 @@ function Row({ label, value, accent = 'text-ink' }: { label: string; value: stri
   );
 }
 
-function plainLanguage(l: Liquidation, bandPct: number): { tone: string; text: string } {
+function plainLanguage(l: Liquidation, bandPct: number, paidRatio: number): { tone: string; text: string } {
   if (l.verdict === 'pending') {
     return {
       tone: 'border-line bg-surface-2/60 text-ink/85',
@@ -25,7 +25,9 @@ function plainLanguage(l: Liquidation, bandPct: number): { tone: string; text: s
   if (l.verdict === 'makegood') {
     const status =
       l.status === 'paid'
-        ? 'It has been paid into your account from the Integrity Reserve.'
+        ? paidRatio < 1
+          ? `The Integrity Reserve ran short, so every user was paid ${fmtPct(paidRatio * 100, 1)} (${fmtUSD(l.amountOwed * paidRatio)} to you). The shortfall has been publicly disclosed.`
+          : 'It has been paid into your account from the Integrity Reserve.'
         : l.status === 'confirmed'
           ? 'Payment has been confirmed and is on its way.'
           : l.status === 'queued'
@@ -48,6 +50,9 @@ function plainLanguage(l: Liquidation, bandPct: number): { tone: string; text: s
 
 export function UserDrawer() {
   const bandPct = useStore((s) => s.bandPct);
+  const liquidations = useStore((s) => s.liquidations);
+  const reserveStart = useStore((s) => s.reserveStart);
+  const reserveBalance = useStore((s) => s.reserveBalance);
   const liq = useStore((s) => s.liquidations.find((l) => l.userId === s.selectedUserId));
   const push = useStore((s) => s.comms.find((c) => c.channel === 'push'));
 
@@ -55,7 +60,7 @@ export function UserDrawer() {
 
   const pushSeen = push && push.status === 'sent';
   const exceeds = liq.deviationPct !== null && liq.deviationPct > bandPct;
-  const msg = plainLanguage(liq, bandPct);
+  const msg = plainLanguage(liq, bandPct, payoutSummary({ liquidations, reserveStart, reserveBalance }).paidRatio);
 
   return (
     <div className="flex flex-col items-center gap-4 py-2">

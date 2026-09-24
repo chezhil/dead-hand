@@ -65,9 +65,13 @@ input[type="range"] {
     box-shadow: none !important;
     backdrop-filter: none !important;
   }
-  [data-print-root] * {
+  [role="dialog"],
+  [role="dialog"] * {
     color: #111 !important;
     background: transparent !important;
     border-color: #ccc !important;
+  }
+  [role="dialog"] > div {
+    border: 0 !important;
   }
 }

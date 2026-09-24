@@ -1,4 +1,5 @@
 import { useStore } from '../../core/store';
+import { payoutSummary } from '../../core/engine';
 import { fmtPct, fmtUSD, round2 } from '../../core/format';
 import { Panel, Pill } from '../../ui/Panel';
 
@@ -14,8 +15,11 @@ export function ReserveSlot() {
   const paidOut = Math.max(0, round2(reserveStart - reserveBalance));
   const remainingPct = Math.max(0, Math.min(100, (reserveBalance / reserveStart) * 100));
 
-  const isShort = totalOwed > reserveBalance;
-  const proRataPct = isShort ? Math.max(0, (reserveBalance / totalOwed) * 100) : 100;
+  // Short either now (unpaid claims exceed the balance) or already (a payout was pro-rata).
+  const payout = payoutSummary({ liquidations, reserveStart, reserveBalance });
+  const shortNow = totalOwed > reserveBalance;
+  const isShort = shortNow || payout.short;
+  const proRataPct = shortNow ? Math.max(0, (reserveBalance / totalOwed) * 100) : payout.paidRatio * 100;
 
   return (
     <Panel
@@ -72,7 +76,11 @@ export function ReserveSlot() {
           <div className="rounded-md border border-orange/40 bg-orange/10 px-3 py-2 text-xs text-orange">
             <div className="font-semibold">Reserve short: paying pro-rata</div>
             <div className="mt-0.5 text-[11px] text-orange/90">
-              Claims exceed available balance ({fmtUSD(totalOwed)} owed vs {fmtUSD(reserveBalance)} reserve).
+              {shortNow ? (
+                <>Claims exceed available balance ({fmtUSD(totalOwed)} owed vs {fmtUSD(reserveBalance)} reserve). </>
+              ) : (
+                <>Paid {fmtUSD(payout.paid)} of {fmtUSD(payout.owedOnPaid)} owed; shortfall {fmtUSD(payout.shortfall)}. </>
+              )}
               Pro-rata payout factor: <strong className="num font-bold">{fmtPct(proRataPct, 1)}</strong>. Shortfall is publicly disclosed.
             </div>
           </div>

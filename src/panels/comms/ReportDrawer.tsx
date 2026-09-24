@@ -84,7 +84,8 @@ export function ReportDrawer() {
     a.href = url;
     a.download = `mochatrade-incident-report-${s.scenario}.md`;
     a.click();
-    URL.revokeObjectURL(url);
+    // Revoking straight away can cancel the download in Safari/Firefox.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (

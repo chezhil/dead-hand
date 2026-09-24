@@ -87,6 +87,10 @@ export interface TemplateContext {
   makegoodCount: number;
   totalOwed: number;
   reserveBalance: number;
+  /** Added by Agent A: amount actually paid out so far (less than owed if the reserve ran short). */
+  totalPaid: number;
+  /** Added by Agent A: fraction of each makegood paid (1 = in full, <1 = pro-rata). */
+  paidRatio: number;
 }
 
 export interface Template {

@@ -14,6 +14,11 @@ npm test           # engine, comms and deviation tests
 npm run build      # typecheck + production build
 ```
 
+For the demo, run the production build: `npm run build && npm run preview`.
+
+In dev builds, `window.__store` (the Zustand store) and `window.__jump(simSeconds)` are
+available in the browser console for debugging, e.g. `__jump(1800)` to skip to T+30:00.
+
 Open `http://localhost:5173/?fixture=1` to load the store frozen at **T+35:00 of the
 system_fault scenario** (makegoods queued, button visible, not yet confirmed). Press
 Resume to continue from there.

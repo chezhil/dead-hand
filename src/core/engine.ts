@@ -89,9 +89,21 @@ export function makegoodTotals(liqs: Liquidation[]): { count: number; total: num
   return { count, total: round2(total) };
 }
 
+/**
+ * What has actually been paid. If the Integrity Reserve was short, makegoods were paid
+ * pro-rata: paidRatio < 1 and shortfall > 0.
+ */
+export function payoutSummary(s: Pick<SimState, 'liquidations' | 'reserveStart' | 'reserveBalance'>) {
+  const owedOnPaid = round2(s.liquidations.reduce((sum, l) => (l.status === 'paid' ? sum + l.amountOwed : sum), 0));
+  const paid = round2(Math.min(owedOnPaid, s.reserveStart - s.reserveBalance));
+  const paidRatio = owedOnPaid > 0 ? paid / owedOnPaid : 1;
+  return { owedOnPaid, paid, paidRatio, shortfall: round2(owedOnPaid - paid), short: owedOnPaid - paid > 0.005 };
+}
+
 export function templateContext(s: SimState): TemplateContext {
   const last = s.prices[s.prices.length - 1];
   const { count, total } = makegoodTotals(s.liquidations);
+  const payout = payoutSummary(s);
   return {
     scenario: s.scenario,
     simTime: s.simTime,
@@ -101,6 +113,8 @@ export function templateContext(s: SimState): TemplateContext {
     makegoodCount: count,
     totalOwed: total,
     reserveBalance: s.reserveBalance,
+    totalPaid: payout.paid,
+    paidRatio: payout.paidRatio,
   };
 }
 

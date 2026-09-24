@@ -33,12 +33,13 @@ export function Header() {
   const phase = useStore((s) => s.phase);
   const humanCallsUsed = useStore((s) => s.humanCallsUsed);
   const buttonVisible = useStore((s) => s.makegoodButtonVisible);
+  const anyQueued = useStore((s) => s.liquidations.some((l) => l.status === 'queued'));
 
   const now = new Date(CRASH_START_UTC + Math.floor(simTime) * 1000);
   const started = phase !== 'setup';
   const currentIdx = started ? STAGES.indexOf(stage) : -1;
   const ended = phase === 'ended';
-  const awaitingCall = buttonVisible && humanCallsUsed === 0;
+  const awaitingCall = buttonVisible && humanCallsUsed === 0 && anyQueued;
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
