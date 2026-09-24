@@ -1,8 +1,7 @@
-import React from 'react';
 // @ts-ignore
 import { useStore } from '../../core/store';
 // @ts-ignore
-import { LogEntry, CommsMessage, Liquidation } from '../../core/types';
+import type { LogEntry, CommsMessage, Liquidation } from '../../core/types';
 import { X, Download, Printer, FileText } from 'lucide-react';
 
 const formatTime = (seconds: number) => {

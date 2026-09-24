@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 // @ts-ignore - Mocking the store import as we don't have the core files yet
 import { useStore } from '../../core/store';
 // @ts-ignore
-import { CommsMessage } from '../../core/types';
+import type { CommsMessage } from '../../core/types';
 import { Mail, Bell, Globe, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 const formatTime = (seconds: number) => {

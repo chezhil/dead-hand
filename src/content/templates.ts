@@ -1,4 +1,4 @@
-import { ScenarioId, Channel } from '../core/types';
+import type { ScenarioId, Channel } from '../core/types';
 
 export interface TemplateContext {
   scenario: ScenarioId;
@@ -23,7 +23,7 @@ export const TEMPLATES: {
     channel: 'status_page',
     fireAt: 300, // T+05:00
     scenarios: 'all',
-    build: (ctx) => ({
+    build: () => ({
       title: 'Incident Update: Feed Divergence Detected',
       body: `We are investigating a potential pricing divergence in our reference feeds. To protect our users, we have proactively paused all NEW leveraged position opens. All other operations—including top-ups, reduces, closes, and withdrawals—remain fully operational. The deviation protocol has been engaged.`,
     }),
@@ -33,7 +33,7 @@ export const TEMPLATES: {
     channel: 'push',
     fireAt: 300, // T+05:00
     scenarios: 'all',
-    build: (ctx) => ({
+    build: () => ({
       title: 'Mocha Trade: Service Update',
       body: 'New leveraged opens are temporarily paused due to a pricing divergence. All exits, top-ups, and withdrawals remain open.',
     }),
@@ -43,7 +43,7 @@ export const TEMPLATES: {
     channel: 'email',
     fireAt: 330, // T+05:30
     scenarios: 'all',
-    build: (ctx) => ({
+    build: () => ({
       title: 'Action Required: Service Update for Mocha Trade Users',
       body: `Dear User,\n\nWe have detected a pricing divergence across our reference feeds. As a precaution, we have temporarily halted all new leveraged opens. Please note that you can still top up, reduce, close, and withdraw your funds normally. We will provide another update soon once the deviation protocol completes its assessment.`,
     }),

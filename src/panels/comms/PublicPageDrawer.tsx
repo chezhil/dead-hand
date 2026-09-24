@@ -1,8 +1,7 @@
-import React from 'react';
 // @ts-ignore
 import { useStore } from '../../core/store';
 // @ts-ignore
-import { PricePoint, Liquidation, CommsMessage } from '../../core/types';
+import type { PricePoint, Liquidation, CommsMessage } from '../../core/types';
 import { X } from 'lucide-react';
 import {
   LineChart,

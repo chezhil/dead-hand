@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 // @ts-ignore
 import { useStore } from '../../core/store';
 // @ts-ignore
-import { CommsMessage, SignalPoint } from '../../core/types';
+import type { CommsMessage, SignalPoint } from '../../core/types';
 import {
   LineChart,
   Line,

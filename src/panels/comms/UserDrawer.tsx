@@ -1,8 +1,7 @@
-import React from 'react';
 // @ts-ignore
 import { useStore } from '../../core/store';
 // @ts-ignore
-import { Liquidation, CommsMessage } from '../../core/types';
+import type { Liquidation, CommsMessage } from '../../core/types';
 import { X, Smartphone, Bell } from 'lucide-react';
 
 export const UserDrawer = () => {
