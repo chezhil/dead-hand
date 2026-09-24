@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CloseIcon } from './icons';
 
 interface DrawerProps {
@@ -11,12 +11,20 @@ interface DrawerProps {
 
 /** Right-hand slide-over. Esc or the backdrop closes it. */
 export function Drawer({ open, title, subtitle, onClose, children }: DrawerProps) {
+  // Captured on first render, before focus moves into the drawer.
+  const [returnFocus] = useState(() => document.activeElement as HTMLElement | null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     if (!open) return;
+    closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      returnFocus?.focus?.();
+    };
+  }, [open, onClose, returnFocus]);
 
   if (!open) return null;
   return (
@@ -28,7 +36,7 @@ export function Drawer({ open, title, subtitle, onClose, children }: DrawerProps
             <h2 className="text-base font-semibold">{title}</h2>
             {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-ink" aria-label="Close">
+          <button ref={closeRef} onClick={onClose} className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-ink" aria-label="Close">
             <CloseIcon />
           </button>
         </div>

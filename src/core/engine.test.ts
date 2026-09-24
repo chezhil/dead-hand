@@ -104,6 +104,15 @@ describe('comms', () => {
     expect(at['x_post:3600'].title).toMatch(/price was wrong/);
   });
 
+  it('scheduled messages never preview a verdict before it exists', () => {
+    for (const sc of ALL) {
+      const s = runTo(sc, 600);
+      const scheduled = s.comms.filter((c) => c.status === 'scheduled');
+      expect(scheduled.length).toBeGreaterThan(0);
+      for (const c of scheduled) expect(`${c.title} ${c.body}`).not.toMatch(/makegoods? (owed|queued)|no makegoods|market moved|price was wrong|\$\d/i);
+    }
+  });
+
   it('says nothing is owed when a wide band clears every liquidation', () => {
     let s: SimState = advance({ ...createInitialState('system_fault'), bandPct: 5, phase: 'running', bandLocked: true }, 0);
     s = advance(s, SIM_END);

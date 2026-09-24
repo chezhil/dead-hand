@@ -123,7 +123,8 @@ export function ComparisonDrawer() {
   const stats = [
     { label: 'Minutes to first user message', ours: `${Math.round(firstMsg / 60)}`, theirs: '~90' },
     { label: 'Minutes to verdict', ours: `${Math.round(T.deviationTest / 60)}`, theirs: 'days' },
-    { label: 'Human decisions needed', ours: String(Math.max(1, humanCallsUsed)), theirs: 'dozens' },
+    // One call if anything is owed, none if not; unknown (at most one) until the verdict is in.
+    { label: 'Human decisions needed', ours: humanCallsUsed > 0 ? '1' : happened(T.deviationTest) ? String(count > 0 ? 1 : 0) : '≤1', theirs: 'dozens' },
     { label: 'Uncovered hours per day', ours: '0', theirs: '8' },
   ];
 

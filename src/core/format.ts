@@ -32,3 +32,12 @@ export function fmtInt(n: number): string {
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+/**
+ * Deviations are published to 2 decimals and the band rule is applied to that published
+ * figure, so what users see ("2.00%") always agrees with the verdict. Use this for every
+ * deviation-vs-band comparison.
+ */
+export function exceedsBand(deviationPct: number, bandPct: number): boolean {
+  return round2(deviationPct) > bandPct;
+}

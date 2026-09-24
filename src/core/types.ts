@@ -99,6 +99,8 @@ export interface Template {
   /** sim seconds */
   fireAt: number;
   scenarios: ScenarioId[] | 'all';
+  /** Added by Agent A: what the message is, shown while it is still scheduled. */
+  label?: string;
   build: (ctx: TemplateContext) => { title: string; body: string };
 }
 

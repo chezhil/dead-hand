@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useStore } from '../../core/store';
-import { fmtPct, fmtT, fmtUSD } from '../../core/format';
+import { exceedsBand, fmtPct, fmtT, fmtUSD } from '../../core/format';
 import { Panel, Pill } from '../../ui/Panel';
 
 export function LiquidationsSlot() {
@@ -80,14 +80,22 @@ export function LiquidationsSlot() {
                   .reverse()
                   .map((l) => {
                     const isExceedingBand =
-                      l.deviationPct !== null && l.deviationPct > bandPct;
+                      l.deviationPct !== null && exceedsBand(l.deviationPct, bandPct);
                     const isAwaiting = l.status === 'untested' || l.deviationPct === null;
 
                     return (
                       <tr
                         key={l.id}
                         onClick={() => handleRowClick(l.userId)}
-                        className="cursor-pointer transition-colors hover:bg-surface/80 hover:text-cyan"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleRowClick(l.userId);
+                          }
+                        }}
+                        tabIndex={0}
+                        aria-label={`${l.userName}, ${l.side} liquidated at ${fmtT(l.t)}. Open user view`}
+                        className="cursor-pointer transition-colors outline-none hover:bg-surface/80 hover:text-cyan focus-visible:bg-surface/80 focus-visible:ring-1 focus-visible:ring-cyan/60"
                         title="Click to view user detail"
                       >
                         <td className="num px-3 py-2 text-muted">{fmtT(l.t)}</td>

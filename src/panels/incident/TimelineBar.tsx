@@ -14,10 +14,13 @@ export function TimelineBar() {
         <div className="absolute inset-y-0 left-0 rounded-full bg-cyan/70" style={{ width: pct(simTime) }} />
         {TIMELINE.map((ev) => {
           const fired = phase !== 'setup' && simTime >= ev.t;
+          const frac = ev.t / SIM_END;
+          // Anchor tooltips inward near the ends so they never run off-screen.
+          const tipPos = frac < 0.15 ? 'left-0' : frac > 0.85 ? 'right-0' : 'left-1/2 -translate-x-1/2';
           return (
             <div key={ev.t} className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: pct(ev.t) }}>
               <div className={`h-3 w-3 rounded-full border-2 ${fired ? 'border-cyan bg-cyan' : 'border-muted/60 bg-navy'}`} />
-              <div className="pointer-events-none absolute top-4 left-1/2 hidden -translate-x-1/2 rounded-md border border-line bg-surface-2 px-2 py-1 text-[11px] whitespace-nowrap text-ink shadow-lg group-hover:block">
+              <div className={`pointer-events-none absolute top-4 z-20 hidden rounded-md ${tipPos} border border-line bg-surface-2 px-2 py-1 text-[11px] whitespace-nowrap text-ink shadow-lg group-hover:block`}>
                 <span className="num text-cyan">{fmtT(ev.t)}</span> {ev.label}
               </div>
             </div>

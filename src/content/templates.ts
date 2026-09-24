@@ -13,6 +13,7 @@ export const TEMPLATES: Template[] = [
     channel: 'status_page',
     fireAt: 300, // T+05:00
     scenarios: 'all',
+    label: 'Status page: what happened, what is paused, what is open',
     build: (ctx) => ({
       title: 'Unusual price movement: new leverage paused, exits open',
       body:
@@ -28,6 +29,7 @@ export const TEMPLATES: Template[] = [
     channel: 'push',
     fireAt: 300, // T+05:00
     scenarios: 'all',
+    label: 'Push to every open position: exits are open',
     build: () => ({
       title: 'MochaTrade: your exits are open',
       body: 'New leverage is paused while we check prices. You can still top up, reduce, close or withdraw at any time.',
@@ -38,6 +40,7 @@ export const TEMPLATES: Template[] = [
     channel: 'email',
     fireAt: 330, // T+05:30
     scenarios: 'all',
+    label: 'Email to affected users: how the deviation test works',
     build: (ctx) => ({
       title: 'About the price movement on MochaTrade',
       body:
@@ -54,6 +57,7 @@ export const TEMPLATES: Template[] = [
     channel: 'status_page',
     fireAt: 1800, // T+30:00
     scenarios: 'all',
+    label: 'Status page update: deviation test results',
     build: (ctx) =>
       ctx.makegoodCount > 0
         ? {
@@ -79,6 +83,7 @@ export const TEMPLATES: Template[] = [
     channel: 'x_post',
     fireAt: 3600, // T+60:00
     scenarios: 'all',
+    label: 'Public post: feed data, verdict, what we owe',
     build: (ctx) => {
       if (ctx.makegoodCount > 0) {
         const payment =

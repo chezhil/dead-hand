@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useStore } from '../../core/store';
 import { SCENARIOS } from '../../core/scenarios';
-import { fmtPct, fmtT, fmtUSD } from '../../core/format';
+import { exceedsBand, fmtPct, fmtT, fmtUSD } from '../../core/format';
 import { FEED_KEYS, feedLabel, type FeedKey } from '../../core/watchdog';
 import type { FeedStatus, PricePoint } from '../../core/types';
 import { Panel, Pill } from '../../ui/Panel';
@@ -59,7 +59,7 @@ function PriceTooltip({ active, payload, bandPct }: { active?: boolean; payload?
       ))}
       <div className="mt-1 flex justify-between gap-4 border-t border-line pt-1">
         <span className="text-muted">Our deviation</span>
-        <span className={`num font-medium ${dev > bandPct ? 'text-orange' : 'text-ink'}`}>{fmtPct(dev)}</span>
+        <span className={`num font-medium ${exceedsBand(dev, bandPct) ? 'text-orange' : 'text-ink'}`}>{fmtPct(dev)}</span>
       </div>
     </div>
   );
@@ -171,8 +171,8 @@ export function PricePanel() {
         <Stat
           label="Our deviation"
           value={last ? fmtPct(dev) : '—'}
-          accent={dev > bandPct ? 'text-orange' : 'text-ink'}
-          hint={last ? (dev > bandPct ? `outside ±${fmtPct(bandPct)} band` : `inside ±${fmtPct(bandPct)} band`) : undefined}
+          accent={exceedsBand(dev, bandPct) ? 'text-orange' : 'text-ink'}
+          hint={last ? (exceedsBand(dev, bandPct) ? `outside ±${fmtPct(bandPct)} band` : `inside ±${fmtPct(bandPct)} band`) : undefined}
         />
         <PriceLegend />
       </div>

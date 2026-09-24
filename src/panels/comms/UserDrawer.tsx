@@ -3,7 +3,7 @@
 import { Bell } from 'lucide-react';
 import { useStore } from '../../core/store';
 import { payoutSummary, T } from '../../core/engine';
-import { fmtPct, fmtT, fmtUSD } from '../../core/format';
+import { exceedsBand, fmtPct, fmtT, fmtUSD } from '../../core/format';
 import type { Liquidation } from '../../core/types';
 
 function Row({ label, value, accent = 'text-ink' }: { label: string; value: string; accent?: string }) {
@@ -42,7 +42,7 @@ function plainLanguage(l: Liquidation, bandPct: number, paidRatio: number): { to
   return {
     tone: 'border-green/30 bg-green/10 text-ink',
     text:
-      (l.deviationPct ?? 0) > bandPct && favourable
+      exceedsBand(l.deviationPct ?? 0, bandPct) && favourable
         ? `Your liquidation price was ${fmtPct(l.deviationPct ?? 0)} from the reference, but in your favour, so no makegood is due. Makegoods restore losses; they never pay profit.`
         : `Your liquidation happened within ${fmtPct(l.deviationPct ?? 0)} of the fair reference price, inside our ${fmtPct(bandPct)} limit. The market moved; our price was right. No makegood is owed.`,
   };
@@ -59,7 +59,7 @@ export function UserDrawer() {
   if (!liq) return <div className="py-10 text-center text-sm text-muted">Select a row in the liquidations table.</div>;
 
   const pushSeen = push && push.status === 'sent';
-  const exceeds = liq.deviationPct !== null && liq.deviationPct > bandPct;
+  const exceeds = liq.deviationPct !== null && exceedsBand(liq.deviationPct, bandPct);
   const msg = plainLanguage(liq, bandPct, payoutSummary({ liquidations, reserveStart, reserveBalance }).paidRatio);
 
   return (

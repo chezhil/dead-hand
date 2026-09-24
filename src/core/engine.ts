@@ -177,12 +177,21 @@ function processSecond(w: Work, sec: number) {
 
   // Schedule every message for this scenario up front so the comms feed can show
   // what is coming and when.
+  // The real text is built only when a message sends, because it depends on numbers
+  // (verdicts, totals, reserve) that don't exist yet.
   if (sec === 0 && w.comms.length === 0) {
-    const ctx = templateContext(w);
     w.comms = templatesFor(w.scenario)
       .slice()
       .sort((a, b) => a.fireAt - b.fireAt)
-      .map((tp) => ({ id: `msg-${tp.id}`, templateId: tp.id, t: tp.fireAt, channel: tp.channel, status: 'scheduled' as const, ...tp.build(ctx) }));
+      .map((tp) => ({
+        id: `msg-${tp.id}`,
+        templateId: tp.id,
+        t: tp.fireAt,
+        channel: tp.channel,
+        status: 'scheduled' as const,
+        title: tp.label ?? `Scheduled ${CHANNEL_LABEL[tp.channel].toLowerCase()} update`,
+        body: 'Written in advance. Live numbers are filled in when it sends.',
+      }));
   }
 
   // Prices + watchdog
@@ -333,12 +342,22 @@ interface StoreLike<S extends SimState> {
   setState: (partial: Partial<S>) => void;
 }
 
-/** Start the 250ms real-time loop. Returns a stop function. */
+/**
+ * Start the 250ms real-time loop. Returns a stop function.
+ *
+ * Each tick advances by the real time actually elapsed (nominally 0.25s x speed), so the
+ * clock keeps pace when the browser throttles timers in a background tab. Capped at 1s
+ * per tick so waking a sleeping laptop doesn't jump the incident forward.
+ */
 export function startEngine<S extends SimState>(store: StoreLike<S>): () => void {
+  let last = performance.now();
   const id = setInterval(() => {
+    const now = performance.now();
+    const elapsed = Math.min(1, (now - last) / 1000);
+    last = now;
     const s = store.getState();
     if (s.phase !== 'running') return;
-    store.setState(advance(s, s.simTime + (TICK_MS / 1000) * s.speed));
+    store.setState(advance(s, s.simTime + elapsed * s.speed));
   }, TICK_MS);
   return () => clearInterval(id);
 }

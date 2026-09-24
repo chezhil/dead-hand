@@ -1,6 +1,6 @@
-// OWNER: Agent C (Hamza). STUB shipped by Agent A so the engine compiles and the
-// fixture has real numbers. Replace freely, but keep the signature.
+// OWNER: Agent C (Hamza). Pure function; the engine imports it. Keep the signature.
 import type { Liquidation } from '../core/types';
+import { exceedsBand } from '../core/format';
 
 /**
  * Deviation Doctrine: "We pay when our price was wrong. We never pay because the market was."
@@ -12,7 +12,8 @@ export function runDeviationTest(liq: Liquidation, bandPct: number): Liquidation
   const deviationPct = (Math.abs(price - median) / median) * 100;
   // Long liquidated below the median, or short above it, is unfavourable.
   const unfavourable = side === 'long' ? Math.max(0, median - price) : Math.max(0, price - median);
-  const makegood = deviationPct > bandPct && unfavourable > 0;
+  // Compared at published precision: "2.00%" against a 2.00% band is never paid.
+  const makegood = exceedsBand(deviationPct, bandPct) && unfavourable > 0;
   return {
     ...liq,
     deviationPct,

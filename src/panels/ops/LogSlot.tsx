@@ -23,14 +23,16 @@ export function LogSlot() {
     return list.slice().reverse(); // Newest at top
   }, [log, stageFilter]);
 
-  const humanEntryCount = useMemo(() => {
-    return log.filter((e) => e.actor === 'human').length;
+  const counts = useMemo(() => {
+    const c = { system: 0, responder: 0, human: 0 };
+    for (const e of log) c[e.actor]++;
+    return c;
   }, [log]);
 
   return (
     <Panel
       title="Incident Log"
-      subtitle={`${log.length - humanEntryCount} automatic ${log.length - humanEntryCount === 1 ? 'entry' : 'entries'} · ${humanEntryCount} human`}
+      subtitle={`${counts.system} system · ${counts.responder} responder · ${counts.human} human`}
       className="h-full"
       bodyClassName="flex flex-col min-h-0"
     >
