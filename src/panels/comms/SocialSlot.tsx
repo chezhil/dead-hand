@@ -1,109 +1,118 @@
+// OWNER: Agent B (Kaustubh). Social mentions per minute, with the moment the status page
+// went live marked. Handles and posts are invented.
 import { useMemo } from 'react';
-// @ts-ignore
-import { useStore } from '../../core/store';
-// @ts-ignore
-import type { CommsMessage, SignalPoint } from '../../core/types';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-  ResponsiveContainer
-} from 'recharts';
 import { User } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useStore } from '../../core/store';
+import { fmtInt, fmtT } from '../../core/format';
+import { Panel } from '../../ui/Panel';
+import { axisProps, C } from '../../ui/theme';
 
-const formatTime = (seconds: number) => {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `T+${m}:${s}`;
-};
-
-const SocialPost = ({ handle, time, text, sentiment }: { handle: string, time: string, text: string, sentiment: 'worried' | 'calm' }) => (
-  <div className="bg-[#0F1A30] p-3 rounded-lg border border-[#8A97B0]/20 flex gap-3">
-    <div className={`mt-1 p-2 rounded-full h-8 w-8 flex items-center justify-center ${sentiment === 'worried' ? 'bg-[#FF8C42]/20 text-[#FF8C42]' : 'bg-[#3DD68C]/20 text-[#3DD68C]'}`}>
-      <User size={16} />
-    </div>
-    <div>
-      <div className="flex items-baseline gap-2 mb-1">
-        <span className="font-semibold text-sm text-gray-200">{handle}</span>
-        <span className="text-xs text-[#8A97B0]">{time}</span>
-      </div>
-      <p className="text-sm text-gray-300">{text}</p>
-    </div>
-  </div>
-);
-
-export const SocialSlot = () => {
-  // @ts-ignore
-  const signals = useStore(s => s.signals) as SignalPoint[];
-  // @ts-ignore
-  const comms = useStore(s => s.comms) as CommsMessage[];
-
-  const chartData = useMemo(() => {
-    return (signals || []).map(s => ({
-      ...s,
-      timeLabel: formatTime(s.t)
-    }));
-  }, [signals]);
-
-  const statusPageMsg = comms?.find(c => c.channel === 'status_page' && c.status === 'sent');
-  const markerTime = statusPageMsg ? statusPageMsg.t : null;
-  const showWorried = (signals?.length > 0 && signals[signals.length - 1].t > 120); // Show early
-  const showCalm = markerTime && (signals?.length > 0 && signals[signals.length - 1].t > markerTime + 60);
-
+function SocialPost({ handle, time, text, tone }: { handle: string; time: string; text: string; tone: 'worried' | 'calm' }) {
   return (
-    <div className="bg-[#0A1020] text-white p-6 rounded-xl h-full flex flex-col">
-      <h2 className="text-xl font-semibold mb-6 text-[#22C3D6]">Social Sentiment</h2>
-      
-      <div className="h-64 w-full mb-6">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#8A97B0" opacity={0.2} vertical={false} />
-            <XAxis dataKey="timeLabel" stroke="#8A97B0" fontSize={12} tickMargin={10} />
-            <YAxis stroke="#8A97B0" fontSize={12} tickFormatter={(val) => `${val}/m`} />
-            <Tooltip 
-              contentStyle={{ backgroundColor: '#0F1A30', border: '1px solid #22C3D6', borderRadius: '8px' }}
-              labelStyle={{ color: '#8A97B0' }}
-              itemStyle={{ color: '#22C3D6' }}
-            />
-            {markerTime && (
-              <ReferenceLine x={formatTime(markerTime)} stroke="#3DD68C" strokeDasharray="3 3" label={{ position: 'top', value: 'Status Page Live', fill: '#3DD68C', fontSize: 12 }} />
-            )}
-            <Line type="monotone" dataKey="socialMentionsPerMin" name="Mentions" stroke="#22C3D6" strokeWidth={2} dot={false} activeDot={{ r: 6, fill: '#FF8C42' }} />
-          </LineChart>
-        </ResponsiveContainer>
+    <div className="flex gap-2 rounded-lg border border-line bg-surface-2/50 px-2.5 py-2">
+      <div
+        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${tone === 'worried' ? 'bg-orange/15 text-orange' : 'bg-green/15 text-green'}`}
+      >
+        <User size={12} />
       </div>
-
-      <div className="flex-1 overflow-y-auto space-y-3">
-        <h3 className="text-sm font-semibold text-[#8A97B0] mb-2 uppercase tracking-wider">Sample Mentions</h3>
-        
-        {showWorried && (
-          <SocialPost 
-            handle="@crypto_trader_99" 
-            time="T+03:15" 
-            text="Price feeds are frozen on Mocha Trade? Tried to open a 10x long and got an error. What is going on?!" 
-            sentiment="worried"
-          />
-        )}
-        
-        {showCalm && (
-          <SocialPost 
-            handle="@defi_whale" 
-            time={formatTime(markerTime + 45)} 
-            text="Looks like they paused new leverage due to feed issues but I just closed my position fine. Good to see the Dead-Hand protocol working." 
-            sentiment="calm"
-          />
-        )}
-
-        {!showWorried && !showCalm && (
-          <div className="text-center text-[#8A97B0] text-sm mt-8">
-            Monitoring social feeds...
-          </div>
-        )}
+      <div className="min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs font-semibold text-ink">{handle}</span>
+          <span className="num text-[11px] text-muted">{time}</span>
+          <span className={`ml-auto text-[10px] font-medium whitespace-nowrap ${tone === 'worried' ? 'text-orange' : 'text-green'}`}>
+            {tone === 'worried' ? 'Before' : 'After'}
+          </span>
+        </div>
+        <p className="mt-0.5 truncate text-[11px] leading-snug text-ink/80" title={text}>{text}</p>
       </div>
     </div>
   );
-};
+}
+
+const WORRIED_AT = 200;
+
+export function SocialSlot() {
+  const signals = useStore((s) => s.signals);
+  const simTime = useStore((s) => s.simTime);
+  const statusAt = useStore((s) => s.comms.find((c) => c.channel === 'status_page' && c.status === 'sent')?.t ?? null);
+
+  const xMax = Math.max(600, Math.ceil(simTime / 300) * 300);
+  const last = signals[signals.length - 1];
+  const peak = useMemo(() => signals.reduce((m, p) => Math.max(m, p.socialMentionsPerMin), 0), [signals]);
+  const calmAt = statusAt !== null ? statusAt + 90 : null;
+
+  return (
+    <Panel
+      title="Social mentions"
+      subtitle="Per minute. Flattens once the status page is live."
+      right={
+        last ? (
+          <div className="text-right">
+            <div className="num text-lg leading-tight font-semibold text-ink">{fmtInt(last.socialMentionsPerMin)}</div>
+            <div className="num text-[10px] text-muted">peak {fmtInt(peak)}</div>
+          </div>
+        ) : undefined
+      }
+    >
+      <div className="h-[90px]">
+        {signals.length === 0 ? (
+          <div className="grid h-full place-items-center rounded-lg border border-dashed border-line text-xs text-muted">No data yet.</div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={signals} margin={{ top: 16, right: 6, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="social-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={C.cyan} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={C.cyan} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke={C.line} vertical={false} strokeOpacity={0.6} />
+              <XAxis dataKey="t" type="number" domain={[0, xMax]} tickFormatter={fmtT} ticks={[0, xMax / 2, xMax]} {...axisProps} />
+              <YAxis width={36} tickFormatter={(v: number) => fmtInt(v)} {...axisProps} axisLine={false} />
+              <Tooltip
+                isAnimationActive={false}
+                cursor={{ stroke: C.muted, strokeDasharray: '3 3' }}
+                content={({ active, payload }) =>
+                  active && payload?.length ? (
+                    <div className="num rounded-md border border-line bg-surface-2 px-2 py-1 text-[11px] text-ink">
+                      {fmtT((payload[0].payload as { t: number }).t)} · {fmtInt(payload[0].value as number)} mentions/min
+                    </div>
+                  ) : null
+                }
+              />
+              {statusAt !== null && (
+                <ReferenceLine
+                  x={statusAt}
+                  stroke={C.green}
+                  strokeDasharray="4 3"
+                  label={{ value: 'Status page live', position: 'insideTopLeft', fill: C.green, fontSize: 10, dy: -14 }}
+                />
+              )}
+              <Area type="monotone" dataKey="socialMentionsPerMin" stroke={C.cyan} strokeWidth={2} fill="url(#social-fill)" dot={false} isAnimationActive={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {simTime >= WORRIED_AT && (
+        <div className="mt-2 space-y-1.5">
+          <SocialPost
+            handle="@chai_and_charts"
+            time={fmtT(WORRIED_AT)}
+            text="MochaTrade price just dropped hard and my long got liquidated. Is this a real move or a glitch?? Anyone else?"
+            tone="worried"
+          />
+          {calmAt !== null && simTime >= calmAt && (
+            <SocialPost
+              handle="@nifty_nights"
+              time={fmtT(calmAt)}
+              text="Status page is up. New leverage paused, exits open, closed my position fine. They say they'll check every liquidation against the median."
+              tone="calm"
+            />
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}

@@ -1,194 +1,165 @@
-// @ts-ignore
-import { useStore } from '../../core/store';
-// @ts-ignore
-import type { LogEntry, CommsMessage, Liquidation } from '../../core/types';
-import { X, Download, Printer, FileText } from 'lucide-react';
+// OWNER: Agent B (Kaustubh). Auto-generated post-incident report. Rendered inside the
+// shared drawer shell when activeDrawer === 'report'.
+import { Download, Printer } from 'lucide-react';
+import { useStore, useMakegoodTotals } from '../../core/store';
+import { SCENARIOS } from '../../core/scenarios';
+import { fmtPct, fmtT, fmtUSD } from '../../core/format';
+import type { Channel, LogEntry } from '../../core/types';
 
-const formatTime = (seconds: number) => {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `T+${m}:${s}`;
-};
+const CHANNEL_LABEL: Record<Channel, string> = { status_page: 'Status page', push: 'Push', email: 'Email', x_post: 'Post on X' };
+const ACTOR_LABEL: Record<LogEntry['actor'], string> = { system: 'System', responder: 'Responder', human: 'Human' };
 
-export const ReportDrawer = () => {
-  // @ts-ignore
-  const activeDrawer = useStore(s => s.activeDrawer);
-  // @ts-ignore
-  const closeDrawer = useStore(s => s.closeDrawer);
-  
-  // @ts-ignore
-  const log = useStore(s => s.log) as LogEntry[];
-  // @ts-ignore
-  const comms = useStore(s => s.comms) as CommsMessage[];
-  // @ts-ignore
-  const liquidations = useStore(s => s.liquidations) as Liquidation[];
-  // @ts-ignore
-  const reserveStart = useStore(s => s.reserveStart) as number;
-  // @ts-ignore
-  const reserveBalance = useStore(s => s.reserveBalance) as number;
-  // @ts-ignore
-  const humanCallsUsed = useStore(s => s.humanCallsUsed) as number;
-  // @ts-ignore
-  const scenario = useStore(s => s.scenario) as string;
+function Fact({ label, value, accent = 'text-ink' }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-line/60 py-1.5 text-sm">
+      <span className="text-muted">{label}</span>
+      <span className={`num font-semibold ${accent}`}>{value}</span>
+    </div>
+  );
+}
 
-  if (activeDrawer !== 'report') return null;
+export function ReportDrawer() {
+  const s = useStore();
+  const { count: makegoodCount, total: totalOwed } = useMakegoodTotals();
+  const meta = SCENARIOS[s.scenario];
+  const noMakegood = s.liquidations.filter((l) => l.verdict === 'no_makegood').length;
+  const pending = s.liquidations.filter((l) => l.verdict === 'pending').length;
+  const paid = s.liquidations.filter((l) => l.status === 'paid');
+  const paidTotal = s.reserveStart - s.reserveBalance;
+  const sent = s.comms.filter((c) => c.status === 'sent');
+  const started = s.phase !== 'setup';
+  const complete = s.phase === 'ended';
 
-  const makegoodCount = liquidations?.filter(l => l.verdict === 'makegood').length || 0;
-  const noMakegoodCount = liquidations?.filter(l => l.verdict === 'no_makegood').length || 0;
-  const totalOwed = liquidations?.reduce((sum, l) => sum + (l.amountOwed || 0), 0) || 0;
+  const facts: [string, string][] = [
+    ['Scenario', meta.label],
+    ['Report as of', started ? fmtT(s.simTime) : 'Not started'],
+    ['Deviation band (locked)', `±${fmtPct(s.bandPct)}`],
+    ['Human calls used', `${s.humanCallsUsed} / 1`],
+    ['Liquidations', String(s.liquidations.length)],
+    ['Makegoods owed', String(makegoodCount)],
+    ['Within band (no makegood)', String(noMakegood)],
+    ['Awaiting deviation test', String(pending)],
+    ['Total owed', fmtUSD(totalOwed)],
+    ['Paid so far', `${fmtUSD(paidTotal)} (${paid.length} users)`],
+    ['Integrity Reserve before', fmtUSD(s.reserveStart)],
+    ['Integrity Reserve after', fmtUSD(s.reserveBalance)],
+  ];
 
-  const formattedTotalOwed = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalOwed);
-  const formattedReserveStart = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(reserveStart);
-  const formattedReserveEnd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(reserveBalance);
-
-  const sentComms = comms?.filter(c => c.status === 'sent') || [];
-
-  const generateMarkdown = () => {
-    let md = `# Post-Incident Report: Mocha Trade\n\n`;
-    md += `**Scenario:** ${scenario}\n`;
-    md += `**Date:** ${new Date().toISOString().split('T')[0]}\n\n`;
-
-    md += `## Executive Summary\n`;
-    md += `- **Human Calls Used:** ${humanCallsUsed} / 1\n`;
-    md += `- **Total Liquidations Assessed:** ${liquidations?.length || 0}\n`;
-    md += `- **Makegoods Issued:** ${makegoodCount}\n`;
-    md += `- **Makegoods Denied (Within Band):** ${noMakegoodCount}\n`;
-    md += `- **Total Compensation Paid:** ${formattedTotalOwed}\n`;
-    md += `- **Integrity Reserve (Before):** ${formattedReserveStart}\n`;
-    md += `- **Integrity Reserve (After):** ${formattedReserveEnd}\n\n`;
-
-    md += `## Timeline (System Logs)\n`;
-    log?.forEach(entry => {
-      md += `- **${formatTime(entry.t)}** [${entry.actor.toUpperCase()}] (${entry.stage.toUpperCase()}): ${entry.text}\n`;
-    });
-    md += `\n`;
-
-    md += `## Communications Dispatched\n`;
-    sentComms.forEach(c => {
-      md += `- **${formatTime(c.t)}** [${c.channel.toUpperCase()}]: ${c.title}\n`;
-    });
-    md += `\n`;
-
-    md += `*Generated automatically by the Dead-Hand Console.*\n`;
-    return md;
+  const toMarkdown = () => {
+    const lines = [
+      `# Post-incident report: MochaTrade`,
+      '',
+      `Generated by the Dead-Hand Console${complete ? '' : ` (incident still in progress at ${fmtT(s.simTime)})`}.`,
+      '',
+      '## Summary',
+      '',
+      ...facts.map(([k, v]) => `- **${k}:** ${v}`),
+      '',
+      '## Verdict',
+      '',
+      makegoodCount > 0
+        ? `Our price was wrong for ${makegoodCount} users (more than ${fmtPct(s.bandPct)} from the reference median). We owe ${fmtUSD(totalOwed)}, paid from the Integrity Reserve.`
+        : pending > 0 || !started
+          ? 'Deviation test not yet complete.'
+          : `All executions were within the ${fmtPct(s.bandPct)} band. The market moved; our price did not. No makegoods owed.`,
+      '',
+      '## Timeline',
+      '',
+      ...s.log.map((e) => `- **${fmtT(e.t)}** · ${ACTOR_LABEL[e.actor]} · ${e.stage.toUpperCase()}: ${e.text}`),
+      '',
+      '## Communications sent',
+      '',
+      ...sent.map((c) => `- **${fmtT(c.t)}** · ${CHANNEL_LABEL[c.channel]}: ${c.title}\n\n  ${c.body.replace(/\n+/g, ' ')}`),
+      '',
+      '> "We pay when our price was wrong. We never pay because the market was."',
+      '',
+    ];
+    return lines.join('\n');
   };
 
-  const handleDownload = () => {
-    const md = generateMarkdown();
-    const blob = new Blob([md], { type: 'text/markdown' });
+  const download = () => {
+    const blob = new Blob([toMarkdown()], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `incident_report_${scenario}.md`;
-    document.body.appendChild(a);
+    a.download = `mochatrade-incident-report-${s.scenario}.md`;
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-[#0A1020] shadow-2xl border-l border-[#8A97B0]/20 z-50 flex flex-col transform transition-transform duration-300 ease-in-out">
-      <div className="flex justify-between items-center p-6 border-b border-[#8A97B0]/20 bg-[#0F1A30]">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <FileText className="text-[#22C3D6]" size={24} />
-          Post-Incident Report
-        </h2>
-        <button onClick={closeDrawer} className="text-[#8A97B0] hover:text-white transition-colors">
-          <X size={24} />
+    <div data-print-root className="space-y-6">
+      <div className="flex gap-2 print:hidden">
+        <button
+          type="button"
+          onClick={download}
+          className="inline-flex items-center gap-2 rounded-lg border border-cyan/50 bg-cyan/10 px-3.5 py-2 text-sm font-medium text-cyan hover:bg-cyan/15"
+        >
+          <Download size={15} /> Download report (.md)
         </button>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="inline-flex items-center gap-2 rounded-lg border border-line px-3.5 py-2 text-sm font-medium text-ink hover:border-cyan/40"
+        >
+          <Printer size={15} /> Print
+        </button>
+        {!complete && started && <span className="self-center text-xs text-muted">Incident in progress; report updates live.</span>}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8 space-y-8 text-gray-300 print:text-black print:bg-white">
-        
-        {/* Header Actions */}
-        <div className="flex gap-4 print:hidden">
-          <button 
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 bg-[#0F1A30] hover:bg-[#1A2942] border border-[#22C3D6]/50 text-[#22C3D6] rounded transition-colors"
-          >
-            <Download size={16} /> Download .md
-          </button>
-          <button 
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-[#0F1A30] hover:bg-[#1A2942] border border-[#8A97B0]/50 text-white rounded transition-colors"
-          >
-            <Printer size={16} /> Print
-          </button>
+      <header>
+        <h3 className="text-xl font-semibold text-ink">Post-incident report: MochaTrade</h3>
+        <p className="text-xs text-muted">{meta.label} · Dead-Hand Protocol</p>
+      </header>
+
+      <section>
+        <h4 className="mb-1 text-sm font-semibold tracking-wider text-muted uppercase">Summary</h4>
+        <div className="grid grid-cols-2 gap-x-8">
+          {facts.map(([k, v]) => (
+            <Fact key={k} label={k} value={v} accent={k === 'Makegoods owed' && makegoodCount > 0 ? 'text-orange' : 'text-ink'} />
+          ))}
         </div>
+      </section>
 
-        {/* Report Content */}
-        <div className="space-y-6">
-          <section className="bg-[#0F1A30] p-6 rounded-xl border border-[#8A97B0]/20 print:border-none print:p-0">
-            <h3 className="text-lg font-semibold text-white mb-4 print:text-black">Executive Summary</h3>
-            <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
-              <div className="flex justify-between border-b border-[#8A97B0]/10 pb-2 print:border-gray-200">
-                <span className="text-[#8A97B0] print:text-gray-600">Human Calls Used</span>
-                <span className={`font-bold ${humanCallsUsed > 1 ? 'text-[#FF8C42]' : 'text-white'} print:text-black`}>
-                  {humanCallsUsed} / 1
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-[#8A97B0]/10 pb-2 print:border-gray-200">
-                <span className="text-[#8A97B0] print:text-gray-600">Total Liquidations Assessed</span>
-                <span className="font-bold text-white print:text-black">{liquidations?.length || 0}</span>
-              </div>
-              <div className="flex justify-between border-b border-[#8A97B0]/10 pb-2 print:border-gray-200">
-                <span className="text-[#8A97B0] print:text-gray-600">Makegoods Issued</span>
-                <span className="font-bold text-[#3DD68C] print:text-black">{makegoodCount}</span>
-              </div>
-              <div className="flex justify-between border-b border-[#8A97B0]/10 pb-2 print:border-gray-200">
-                <span className="text-[#8A97B0] print:text-gray-600">Total Compensation</span>
-                <span className="font-bold text-[#3DD68C] print:text-black">{formattedTotalOwed}</span>
-              </div>
-              <div className="flex justify-between border-b border-[#8A97B0]/10 pb-2 print:border-gray-200">
-                <span className="text-[#8A97B0] print:text-gray-600">Reserve Start</span>
-                <span className="font-mono text-white print:text-black">{formattedReserveStart}</span>
-              </div>
-              <div className="flex justify-between border-b border-[#8A97B0]/10 pb-2 print:border-gray-200">
-                <span className="text-[#8A97B0] print:text-gray-600">Reserve End</span>
-                <span className="font-mono text-white print:text-black">{formattedReserveEnd}</span>
-              </div>
-            </div>
-          </section>
+      <section>
+        <h4 className="mb-2 text-sm font-semibold tracking-wider text-muted uppercase">Timeline</h4>
+        {s.log.length === 0 ? (
+          <p className="text-sm text-muted">Nothing yet. Start a scenario.</p>
+        ) : (
+          <ol className="space-y-1.5">
+            {s.log.map((e) => (
+              <li
+                key={e.id}
+                className={`grid grid-cols-[64px_84px_1fr] gap-3 rounded-md px-2 py-1.5 text-xs ${e.actor === 'human' ? 'border border-orange/40 bg-orange/10' : 'bg-surface-2/40'}`}
+              >
+                <span className="num text-cyan">{fmtT(e.t)}</span>
+                <span className={`font-semibold uppercase ${e.actor === 'human' ? 'text-orange' : 'text-muted'}`}>{ACTOR_LABEL[e.actor]}</span>
+                <span className="text-ink/90">{e.text}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
 
-          <section>
-            <h3 className="text-lg font-semibold text-white mb-4 print:text-black">Timeline (System Logs)</h3>
-            <div className="space-y-3">
-              {log?.map(entry => (
-                <div key={entry.id} className="flex gap-4 text-sm bg-[#0F1A30] p-3 rounded-lg border border-l-4 border-[#8A97B0]/20 border-l-[#22C3D6] print:border-gray-300 print:bg-white print:border-l-4 print:border-l-black">
-                  <div className="w-16 font-mono text-[#8A97B0] print:text-gray-600 shrink-0">{formatTime(entry.t)}</div>
-                  <div className="w-20 font-semibold text-xs mt-0.5 text-[#22C3D6] uppercase tracking-wider print:text-black shrink-0">
-                    {entry.actor}
-                  </div>
-                  <div className="text-gray-300 print:text-black">
-                    <span className="text-[#8A97B0] print:text-gray-500 uppercase text-xs mr-2">[{entry.stage}]</span>
-                    {entry.text}
-                  </div>
+      <section>
+        <h4 className="mb-2 text-sm font-semibold tracking-wider text-muted uppercase">Communications sent</h4>
+        {sent.length === 0 ? (
+          <p className="text-sm text-muted">None yet.</p>
+        ) : (
+          <ol className="space-y-2">
+            {sent.map((c) => (
+              <li key={c.id} className="rounded-md border border-line px-3 py-2 text-xs">
+                <div className="flex justify-between text-muted">
+                  <span>{CHANNEL_LABEL[c.channel]}</span>
+                  <span className="num">{fmtT(c.t)}</span>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-lg font-semibold text-white mb-4 print:text-black">Communications Dispatched</h3>
-            <div className="space-y-3">
-              {sentComms.map(c => (
-                <div key={c.id} className="flex gap-4 text-sm border-b border-[#8A97B0]/20 pb-3 print:border-gray-300">
-                  <div className="w-16 font-mono text-[#8A97B0] print:text-gray-600 shrink-0">{formatTime(c.t)}</div>
-                  <div className="w-24 font-semibold text-xs mt-0.5 text-[#8A97B0] uppercase tracking-wider print:text-black shrink-0">
-                    {c.channel}
-                  </div>
-                  <div className="text-gray-300 print:text-black">{c.title}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-        </div>
-      </div>
+                <div className="mt-0.5 font-semibold text-ink">{c.title}</div>
+                <p className="mt-0.5 whitespace-pre-line text-ink/80">{c.body}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
     </div>
   );
-};
+}

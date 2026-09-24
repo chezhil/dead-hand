@@ -91,3 +91,25 @@ describe('fixture', () => {
     expect(f.liquidations.some((l) => l.status === 'queued')).toBe(true);
   });
 });
+
+describe('comms', () => {
+  it('sends every message at its brief time, built from live numbers', () => {
+    const s = runTo('system_fault', SIM_END);
+    const at = Object.fromEntries(s.comms.map((c) => [c.channel + ':' + c.t, c]));
+    expect(Object.keys(at).sort()).toEqual(['email:330', 'push:300', 'status_page:1800', 'status_page:300', 'x_post:3600']);
+    const { count, total } = makegoodTotals(s.liquidations);
+    const fmtTotal = `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    expect(at['status_page:1800'].body).toContain(`${count} users`);
+    expect(at['x_post:3600'].body).toContain(fmtTotal);
+    expect(at['x_post:3600'].title).toMatch(/price was wrong/);
+  });
+
+  it('says nothing is owed when a wide band clears every liquidation', () => {
+    let s: SimState = advance({ ...createInitialState('system_fault'), bandPct: 5, phase: 'running', bandLocked: true }, 0);
+    s = advance(s, SIM_END);
+    expect(makegoodTotals(s.liquidations).count).toBe(0);
+    const x = s.comms.find((c) => c.channel === 'x_post')!;
+    expect(x.title).toMatch(/market moved/i);
+    expect(s.comms.find((c) => c.t === 1800)!.title).toMatch(/no makegoods/i);
+  });
+});

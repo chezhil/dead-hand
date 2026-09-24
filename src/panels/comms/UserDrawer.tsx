@@ -1,133 +1,118 @@
-// @ts-ignore
+// OWNER: Agent B (Kaustubh). What one liquidated user saw, as a phone-shaped card.
+// Rendered inside the shared drawer shell when activeDrawer === 'user'; reads selectedUserId.
+import { Bell } from 'lucide-react';
 import { useStore } from '../../core/store';
-// @ts-ignore
-import type { Liquidation, CommsMessage } from '../../core/types';
-import { X, Smartphone, Bell } from 'lucide-react';
+import { T } from '../../core/engine';
+import { fmtPct, fmtT, fmtUSD } from '../../core/format';
+import type { Liquidation } from '../../core/types';
 
-export const UserDrawer = () => {
-  // @ts-ignore
-  const activeDrawer = useStore(s => s.activeDrawer);
-  // @ts-ignore
-  const closeDrawer = useStore(s => s.closeDrawer);
-  // @ts-ignore
-  const selectedUserId = useStore(s => s.selectedUserId);
-  // @ts-ignore
-  const liquidations = useStore(s => s.liquidations) as Liquidation[];
-  // @ts-ignore
-  const comms = useStore(s => s.comms) as CommsMessage[];
+function Row({ label, value, accent = 'text-ink' }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 text-xs">
+      <span className="text-muted">{label}</span>
+      <span className={`num font-medium ${accent}`}>{value}</span>
+    </div>
+  );
+}
 
-  if (activeDrawer !== 'user' || !selectedUserId) return null;
-
-  const userLiquidation = liquidations?.find(l => l.userId === selectedUserId);
-  
-  if (!userLiquidation) {
-    return (
-      <div className="fixed inset-y-0 right-0 w-full max-w-md bg-[#0A1020] shadow-2xl border-l border-[#8A97B0]/20 z-50 flex items-center justify-center">
-        <p className="text-[#8A97B0]">Liquidation details not found.</p>
-        <button onClick={closeDrawer} className="absolute top-6 right-6 text-[#8A97B0]"><X size={24} /></button>
-      </div>
-    );
+function plainLanguage(l: Liquidation, bandPct: number): { tone: string; text: string } {
+  if (l.verdict === 'pending') {
+    return {
+      tone: 'border-line bg-surface-2/60 text-ink/85',
+      text: `Your liquidation will be checked automatically at ${fmtT(T.deviationTest)}. If our price was more than ${fmtPct(bandPct)} away from the reference median, we restore your position. You don't need to do anything.`,
+    };
   }
+  if (l.verdict === 'makegood') {
+    const status =
+      l.status === 'paid'
+        ? 'It has been paid into your account from the Integrity Reserve.'
+        : l.status === 'confirmed'
+          ? 'Payment has been confirmed and is on its way.'
+          : l.status === 'queued'
+            ? 'It is queued and will be paid from the Integrity Reserve.'
+            : `It will be queued at ${fmtT(T.makegoodsQueued)}.`;
+    return {
+      tone: 'border-orange/40 bg-orange/10 text-ink',
+      text: `Our price was wrong for you. You were liquidated ${fmtPct(l.deviationPct ?? 0)} away from the fair reference price, more than our ${fmtPct(bandPct)} limit. We owe you ${fmtUSD(l.amountOwed)} to restore your position. ${status}`,
+    };
+  }
+  const favourable = l.side === 'long' ? l.executionPrice >= l.referenceMedian : l.executionPrice <= l.referenceMedian;
+  return {
+    tone: 'border-green/30 bg-green/10 text-ink',
+    text:
+      (l.deviationPct ?? 0) > bandPct && favourable
+        ? `Your liquidation price was ${fmtPct(l.deviationPct ?? 0)} from the reference, but in your favour, so no makegood is due. Makegoods restore losses; they never pay profit.`
+        : `Your liquidation happened within ${fmtPct(l.deviationPct ?? 0)} of the fair reference price, inside our ${fmtPct(bandPct)} limit. The market moved; our price was right. No makegood is owed.`,
+  };
+}
 
-  const pushMsg = comms?.find(c => c.channel === 'push');
+export function UserDrawer() {
+  const bandPct = useStore((s) => s.bandPct);
+  const liq = useStore((s) => s.liquidations.find((l) => l.userId === s.selectedUserId));
+  const push = useStore((s) => s.comms.find((c) => c.channel === 'push'));
 
-  const formattedAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(userLiquidation.amountOwed || 0);
-  const formattedExecution = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(userLiquidation.executionPrice);
-  const formattedMedian = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(userLiquidation.referenceMedian);
+  if (!liq) return <div className="py-10 text-center text-sm text-muted">Select a row in the liquidations table.</div>;
+
+  const pushSeen = push && push.status === 'sent';
+  const exceeds = liq.deviationPct !== null && liq.deviationPct > bandPct;
+  const msg = plainLanguage(liq, bandPct);
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full max-w-md bg-[#0A1020] shadow-2xl border-l border-[#8A97B0]/20 z-50 flex flex-col transform transition-transform duration-300 ease-in-out">
-      <div className="flex justify-between items-center p-6 border-b border-[#8A97B0]/20 bg-[#0F1A30]">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Smartphone className="text-[#22C3D6]" size={20} />
-          User View: {userLiquidation.userName}
-        </h2>
-        <button onClick={closeDrawer} className="text-[#8A97B0] hover:text-white transition-colors">
-          <X size={24} />
-        </button>
-      </div>
+    <div className="flex flex-col items-center gap-4 py-2">
+      <p className="max-w-sm text-center text-xs text-muted">
+        {liq.userName} ({liq.userId}) was liquidated at {fmtT(liq.t)}. This is what their phone showed.
+      </p>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-[#0A1020]">
-        
-        {/* Phone Mockup for Push Notification */}
-        <div>
-          <h3 className="text-sm font-semibold text-[#8A97B0] uppercase tracking-wider mb-3">Push Notification Received</h3>
-          <div className="mx-auto w-64 h-[120px] bg-black rounded-[2rem] border-4 border-gray-800 p-3 shadow-lg relative overflow-hidden">
-            {/* Notch */}
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-4 bg-gray-800 rounded-b-xl"></div>
-            
-            {pushMsg && pushMsg.status === 'sent' ? (
-              <div className="mt-4 bg-[#0F1A30]/90 rounded-xl p-3 backdrop-blur-sm border border-white/10 text-white shadow-xl">
-                <div className="flex items-center gap-2 mb-1">
-                  <Bell size={12} className="text-[#22C3D6]" />
-                  <span className="text-[10px] font-semibold text-gray-300 tracking-wide uppercase">Mocha Trade</span>
-                </div>
-                <h4 className="text-[11px] font-bold mb-1">{pushMsg.title}</h4>
-                <p className="text-[10px] text-gray-300 leading-tight line-clamp-3">{pushMsg.body}</p>
-              </div>
-            ) : (
-              <div className="mt-8 text-center text-[10px] text-gray-500">No push notification sent yet</div>
-            )}
-          </div>
-        </div>
+      {/* Phone */}
+      <div className="w-[340px] rounded-[2.4rem] border-[6px] border-[#1B2744] bg-navy p-3 shadow-2xl">
+        <div className="mx-auto mb-3 h-5 w-28 rounded-full bg-[#1B2744]" />
 
-        {/* Liquidation Details */}
-        <div>
-          <h3 className="text-sm font-semibold text-[#8A97B0] uppercase tracking-wider mb-3">Liquidation Assessment</h3>
-          
-          <div className="bg-[#0F1A30] rounded-xl border border-[#8A97B0]/20 overflow-hidden">
-            <div className="p-4 border-b border-[#8A97B0]/20 flex justify-between items-center bg-[#0A1020]/50">
-              <span className="text-sm text-gray-300">Position</span>
-              <span className={`font-mono font-bold ${userLiquidation.side === 'long' ? 'text-[#3DD68C]' : 'text-[#FF8C42]'}`}>
-                {userLiquidation.qty}x {userLiquidation.side.toUpperCase()}
-              </span>
+        {pushSeen ? (
+          <div className="rounded-2xl border border-white/10 bg-surface-2/90 p-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-muted uppercase">
+              <Bell size={11} className="text-cyan" /> MochaTrade · {fmtT(push.t)}
             </div>
-            
-            <div className="p-4 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-[#8A97B0]">Reference Median</span>
-                <span className="font-mono text-white">{formattedMedian}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-[#8A97B0]">Execution Price</span>
-                <span className="font-mono text-white">{formattedExecution}</span>
-              </div>
-              
-              <div className="h-px bg-[#8A97B0]/20 w-full my-2"></div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-[#8A97B0]">Calculated Deviation</span>
-                <span className={`font-mono ${userLiquidation.deviationPct && userLiquidation.deviationPct > 0 ? 'text-[#FF8C42]' : 'text-gray-300'}`}>
-                  {userLiquidation.deviationPct !== null ? `${userLiquidation.deviationPct.toFixed(2)}%` : 'Pending'}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-sm text-[#8A97B0]">Verdict</span>
-                {userLiquidation.verdict === 'pending' && <span className="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs font-semibold uppercase">Pending</span>}
-                {userLiquidation.verdict === 'makegood' && <span className="px-2 py-1 bg-[#3DD68C]/20 text-[#3DD68C] rounded text-xs font-semibold uppercase">Makegood Owed</span>}
-                {userLiquidation.verdict === 'no_makegood' && <span className="px-2 py-1 bg-[#8A97B0]/20 text-[#8A97B0] rounded text-xs font-semibold uppercase">Within Band</span>}
-              </div>
-            </div>
+            <div className="mt-1 text-[13px] font-semibold text-ink">{push.title}</div>
+            <p className="mt-0.5 text-xs leading-snug text-ink/80">{push.body}</p>
           </div>
-        </div>
-
-        {/* Resolution Message */}
-        {userLiquidation.verdict !== 'pending' && (
-          <div className={`p-4 rounded-xl border ${userLiquidation.verdict === 'makegood' ? 'bg-[#3DD68C]/10 border-[#3DD68C]/30 text-[#3DD68C]' : 'bg-[#0F1A30] border-[#8A97B0]/20 text-gray-300'}`}>
-            {userLiquidation.verdict === 'makegood' ? (
-              <p className="text-sm">
-                Your execution price deviated significantly from the reference median. We are restoring your position value by issuing a makegood of <span className="font-bold">{formattedAmount}</span> to your account.
-              </p>
-            ) : (
-              <p className="text-sm">
-                Your execution price was within the published acceptable deviation band of the reference median. The market moved sharply, but our pricing was accurate. No compensation is owed.
-              </p>
-            )}
+        ) : (
+          <div className="rounded-2xl border border-dashed border-line p-3 text-center text-[11px] text-muted">
+            Push notification goes out at {fmtT(T.statusPage)}
           </div>
         )}
 
+        <div className="mt-3 rounded-2xl bg-surface p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-ink">Your liquidation</div>
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${liq.side === 'long' ? 'bg-green/10 text-green' : 'bg-orange/10 text-orange'}`}
+            >
+              {liq.side}
+            </span>
+          </div>
+          <div className="mt-2 divide-y divide-line/60">
+            <Row label="Size" value={`${liq.qty} units`} />
+            <Row label="Fair reference price (median)" value={fmtUSD(liq.referenceMedian)} accent="text-cyan" />
+            <Row label="Price we liquidated at" value={fmtUSD(liq.executionPrice)} accent="text-orange" />
+            <Row
+              label="Difference"
+              value={liq.deviationPct === null ? 'Testing at T+15:00' : fmtPct(liq.deviationPct)}
+              accent={exceeds ? 'text-orange' : liq.deviationPct === null ? 'text-muted' : 'text-ink'}
+            />
+            <Row label="Published limit" value={`±${fmtPct(bandPct)}`} />
+            <Row
+              label="Verdict"
+              value={liq.verdict === 'pending' ? 'Pending' : liq.verdict === 'makegood' ? 'Makegood owed' : 'No makegood'}
+              accent={liq.verdict === 'makegood' ? 'text-orange' : liq.verdict === 'no_makegood' ? 'text-green' : 'text-muted'}
+            />
+            {liq.verdict === 'makegood' && <Row label="We owe you" value={fmtUSD(liq.amountOwed)} accent="text-orange" />}
+          </div>
+        </div>
+
+        <div className={`mt-3 rounded-2xl border p-3 text-xs leading-relaxed ${msg.tone}`}>{msg.text}</div>
+
+        <div className="mx-auto mt-4 h-1 w-24 rounded-full bg-[#1B2744]" />
       </div>
     </div>
   );
-};
+}

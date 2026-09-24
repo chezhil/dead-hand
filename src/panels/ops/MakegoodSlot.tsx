@@ -14,7 +14,7 @@ export function MakegoodSlot() {
   return (
     <Panel
       title="Makegood Authorization"
-      subtitle="The single human call (Protocol Rule 16)"
+      subtitle="The one human call in the first hour"
       right={
         isConfirmed ? (
           <Pill tone="green">Human Call: 1 of 1 Used</Pill>
@@ -50,9 +50,6 @@ export function MakegoodSlot() {
               <span className="text-muted">
                 <strong className="text-ink">{count}</strong> makegoods queued,{' '}
                 <strong className="text-ink">{fmtUSD(total)}</strong> total, paid from Integrity Reserve
-              </span>
-              <span className="text-[11px] text-muted">
-                Coverage: Segregated Treasury
               </span>
             </div>
 

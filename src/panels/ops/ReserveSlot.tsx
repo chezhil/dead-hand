@@ -1,11 +1,15 @@
-import { useStore, useMakegoodTotals } from '../../core/store';
+import { useStore } from '../../core/store';
 import { fmtPct, fmtUSD, round2 } from '../../core/format';
 import { Panel, Pill } from '../../ui/Panel';
 
 export function ReserveSlot() {
   const reserveStart = useStore((s) => s.reserveStart);
   const reserveBalance = useStore((s) => s.reserveBalance);
-  const { total: totalOwed } = useMakegoodTotals();
+  const liquidations = useStore((s) => s.liquidations);
+  // Only makegoods not yet paid are still claims on the reserve.
+  const totalOwed = round2(
+    liquidations.reduce((sum, l) => (l.verdict === 'makegood' && l.status !== 'paid' ? sum + l.amountOwed : sum), 0),
+  );
 
   const paidOut = Math.max(0, round2(reserveStart - reserveBalance));
   const remainingPct = Math.max(0, Math.min(100, (reserveBalance / reserveStart) * 100));

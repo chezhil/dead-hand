@@ -10,13 +10,13 @@ function MiniChart({ label, dataKey, data, xMax, note }: { label: string; dataKe
   const peak = data.reduce((m, d) => Math.max(m, d[dataKey]), 0);
   const gid = `sig-${dataKey}`;
   return (
-    <div className="min-w-0 flex-1 rounded-lg border border-line bg-navy/40 px-3 pt-2 pb-1">
+    <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-line bg-navy/40 px-3 pt-2 pb-1">
       <div className="flex items-baseline justify-between gap-2">
         <div className="text-xs text-muted">{label}</div>
         <div className="num text-[11px] text-muted">peak {fmtInt(peak)}</div>
       </div>
       <div className="num text-2xl leading-tight font-semibold text-ink">{last ? fmtInt(last[dataKey]) : '—'}</div>
-      <div className="h-[72px]">
+      <div className="min-h-[72px] flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
             <defs>
@@ -52,8 +52,8 @@ export function SignalsPanel() {
   const simTime = useStore((s) => s.simTime);
   const xMax = Math.max(600, Math.ceil(simTime / 300) * 300);
   return (
-    <Panel title="Signals" subtitle="Per minute, live">
-      <div className="flex gap-3">
+    <Panel title="Signals" subtitle="Per minute, live" className="flex-1" bodyClassName="flex">
+      <div className="flex flex-1 gap-3">
         <MiniChart label="Liquidations / min" dataKey="liquidationsPerMin" data={signals} xMax={xMax} note="Trailing 60s. Zero while feeds disagree." />
         <MiniChart label="Support tickets / min" dataKey="ticketsPerMin" data={signals} xMax={xMax} note="Falls once the push reaches users." />
       </div>

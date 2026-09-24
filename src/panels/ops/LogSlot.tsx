@@ -30,11 +30,11 @@ export function LogSlot() {
   return (
     <Panel
       title="Incident Log"
-      subtitle={`${log.length} automated events · ${humanEntryCount} human call`}
+      subtitle={`${log.length - humanEntryCount} automatic ${log.length - humanEntryCount === 1 ? 'entry' : 'entries'} · ${humanEntryCount} human`}
       className="h-full"
-      bodyClassName="flex flex-col min-h-0 h-full"
-      right={
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+      bodyClassName="flex flex-col min-h-0"
+    >
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
           {STAGES.map((s) => (
             <button
               key={s.key}
@@ -50,8 +50,6 @@ export function LogSlot() {
             </button>
           ))}
         </div>
-      }
-    >
       <div className="flex-1 min-h-0 overflow-y-auto pr-1">
         {filteredEntries.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-xs text-muted">

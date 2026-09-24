@@ -122,7 +122,7 @@ export function LiquidationsSlot() {
                           }`}
                         >
                           {isAwaiting ? (
-                            <span className="text-[11px] text-muted">Awaiting test</span>
+                            <span className="text-[11px] text-muted">Awaiting deviation test</span>
                           ) : (
                             fmtPct(l.deviationPct!)
                           )}

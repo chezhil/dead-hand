@@ -10,7 +10,7 @@ deterministically in the browser, so every demo run is identical.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # engine + (Agent C) deviation tests
+npm test           # engine, comms and deviation tests
 npm run build      # typecheck + production build
 ```
 
@@ -29,13 +29,12 @@ Resume to continue from there.
 
 **Golden rule:** stay inside your own folders. Need a contract change? Ask Agent A.
 
-`src/content/templates.ts` and `src/lib/deviation.ts` currently hold working stubs so
-the engine compiles; replace them, keeping the export names and signatures.
+Keep the export names and signatures in `src/content/templates.ts` (`TEMPLATES`) and
+`src/lib/deviation.ts` (`runDeviationTest`); the engine imports them.
 
 ## Slots
 
-`App.tsx` imports these names from each folder's `index.ts`. Replace the placeholder
-bodies; keep the exports.
+`App.tsx` imports these names from each folder's `index.ts`; keep the exports.
 
 - `src/panels/comms`: `CommsFeedSlot`, `SocialSlot`, `PublicPageDrawer`, `UserDrawer`, `ReportDrawer`
 - `src/panels/ops`: `LiquidationsSlot`, `ReserveSlot`, `MakegoodSlot`, `ResponderSlot`, `LogSlot`, `ComparisonDrawer`

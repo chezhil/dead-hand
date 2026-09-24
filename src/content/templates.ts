@@ -1,31 +1,26 @@
-import type { ScenarioId, Channel } from '../core/types';
+// OWNER: Agent B (Kaustubh). Message templates the engine sends automatically.
+// Every number comes from ctx; nothing is hard-coded. Tone: calm, factual, non-defensive.
+import type { Template, TemplateContext } from '../core/types';
+import { fmtPct, fmtUSD } from '../core/format';
 
-export interface TemplateContext {
-  scenario: ScenarioId;
-  simTime: number;
-  median: number;
-  ours: number;
-  bandPct: number;
-  makegoodCount: number;
-  totalOwed: number;
-  reserveBalance: number;
-}
+export type { TemplateContext };
 
-export const TEMPLATES: {
-  id: string;
-  channel: Channel;
-  fireAt: number; // sim seconds
-  scenarios: ScenarioId[] | 'all';
-  build: (ctx: TemplateContext) => { title: string; body: string };
-}[] = [
+const users = (n: number) => `${n} ${n === 1 ? 'user' : 'users'}`;
+
+export const TEMPLATES: Template[] = [
   {
     id: 'status_page_initial',
     channel: 'status_page',
     fireAt: 300, // T+05:00
     scenarios: 'all',
-    build: () => ({
-      title: 'Incident Update: Feed Divergence Detected',
-      body: `We are investigating a potential pricing divergence in our reference feeds. To protect our users, we have proactively paused all NEW leveraged position opens. All other operations—including top-ups, reduces, closes, and withdrawals—remain fully operational. The deviation protocol has been engaged.`,
+    build: (ctx) => ({
+      title: 'Unusual price movement: new leverage paused, exits open',
+      body:
+        'Our watchdog flagged unusual movement across our three reference price feeds. ' +
+        'As a precaution, opening new leveraged positions is paused. ' +
+        'Top-up, reduce, close and withdraw are all open and working normally. ' +
+        `Every liquidation from this period will be checked against the reference median using our published ${fmtPct(ctx.bandPct)} band. ` +
+        'Next update by T+30:00.',
     }),
   },
   {
@@ -34,8 +29,8 @@ export const TEMPLATES: {
     fireAt: 300, // T+05:00
     scenarios: 'all',
     build: () => ({
-      title: 'Mocha Trade: Service Update',
-      body: 'New leveraged opens are temporarily paused due to a pricing divergence. All exits, top-ups, and withdrawals remain open.',
+      title: 'MochaTrade: your exits are open',
+      body: 'New leverage is paused while we check prices. You can still top up, reduce, close or withdraw at any time.',
     }),
   },
   {
@@ -43,9 +38,15 @@ export const TEMPLATES: {
     channel: 'email',
     fireAt: 330, // T+05:30
     scenarios: 'all',
-    build: () => ({
-      title: 'Action Required: Service Update for Mocha Trade Users',
-      body: `Dear User,\n\nWe have detected a pricing divergence across our reference feeds. As a precaution, we have temporarily halted all new leveraged opens. Please note that you can still top up, reduce, close, and withdraw your funds normally. We will provide another update soon once the deviation protocol completes its assessment.`,
+    build: (ctx) => ({
+      title: 'About the price movement on MochaTrade',
+      body:
+        'Hello,\n\n' +
+        'A few minutes ago our reference price feeds moved sharply. We paused new leveraged positions as a precaution; ' +
+        'you can still top up, reduce, close and withdraw.\n\n' +
+        `If one of your positions was liquidated, we will compare its execution price with the median of three independent feeds. ` +
+        `If the difference is more than ${fmtPct(ctx.bandPct)}, we restore the position automatically. You do not need to do anything.\n\n` +
+        'MochaTrade',
     }),
   },
   {
@@ -53,33 +54,46 @@ export const TEMPLATES: {
     channel: 'status_page',
     fireAt: 1800, // T+30:00
     scenarios: 'all',
-    build: (ctx) => ({
-      title: 'Incident Update: Deviation Test Complete',
-      body: `The deviation test has been completed for all affected liquidations. We have identified ${ctx.makegoodCount} positions that require makegoods under the Deviation Doctrine. The automatic makegood process has queued these for confirmation.`,
-    }),
+    build: (ctx) =>
+      ctx.makegoodCount > 0
+        ? {
+            title: `Deviation test complete: ${ctx.makegoodCount} makegoods queued`,
+            body:
+              `We tested every liquidation against the reference median. ${users(ctx.makegoodCount)} were liquidated more than ` +
+              `${fmtPct(ctx.bandPct)} away from it, so our price was wrong for them. Makegoods totalling ${fmtUSD(ctx.totalOwed)} ` +
+              `are queued and will be paid from the Integrity Reserve (balance ${fmtUSD(ctx.reserveBalance)}).`,
+          }
+        : {
+            title: 'Deviation test complete: no makegoods owed',
+            body:
+              `We tested every liquidation against the reference median. All executions were within the published ` +
+              `${fmtPct(ctx.bandPct)} band: the market moved, our price did not. No makegoods are owed. Full feed data follows at T+60:00.`,
+          },
   },
   {
-    id: 'x_post_system_fault',
+    // One version per outcome: if any makegood is owed, our price was wrong.
+    id: 'x_post_final',
     channel: 'x_post',
     fireAt: 3600, // T+60:00
-    scenarios: ['system_fault', 'historical_replay'], // Treat historical replay like a system fault in terms of resolution if there are makegoods
+    scenarios: 'all',
     build: (ctx) => {
-      const formattedTotalOwed = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ctx.totalOwed);
-      const formattedReserve = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ctx.reserveBalance);
+      if (ctx.makegoodCount > 0) {
+        return {
+          title: 'Our price was wrong. Here is the data and what we owe.',
+          body:
+            `During today's move, ${users(ctx.makegoodCount)} were liquidated more than ${fmtPct(ctx.bandPct)} from the ` +
+            `3-feed reference median. We owe them ${fmtUSD(ctx.totalOwed)}, paid from the Integrity Reserve ` +
+            `(balance ${fmtUSD(ctx.reserveBalance)}). Makegoods restore positions; they never pay profit. ` +
+            'Feed data and every verdict are on our status page.',
+        };
+      }
       return {
-        title: 'Post-Incident Report',
-        body: `Our price execution was incorrect. Under the Deviation Doctrine, we pay when our price was wrong. Median feed price: $${ctx.median.toFixed(2)}. Our execution price: $${ctx.ours.toFixed(2)}. We owe ${formattedTotalOwed} to ${ctx.makegoodCount} users. This has been paid in full from the Integrity Reserve (remaining balance: ${formattedReserve}).`,
+        title: 'The market moved. Our price did not.',
+        body:
+          `Every liquidation executed within our published ${fmtPct(ctx.bandPct)} band of the 3-feed reference median, ` +
+          `so no makegoods are owed. Integrity Reserve untouched at ${fmtUSD(ctx.reserveBalance)}. ` +
+          'Feed data and every verdict are on our status page.',
       };
     },
-  },
-  {
-    id: 'x_post_market_move',
-    channel: 'x_post',
-    fireAt: 3600, // T+60:00
-    scenarios: ['market_move'],
-    build: (ctx) => ({
-      title: 'Post-Incident Report',
-      body: `A sharp market movement occurred. Our execution price ($${ctx.ours.toFixed(2)}) stayed within the ${ctx.bandPct.toFixed(2)}% band of the reference median ($${ctx.median.toFixed(2)}). As per the Deviation Doctrine, no makegoods are owed. All operations will resume shortly.`,
-    }),
   },
 ];

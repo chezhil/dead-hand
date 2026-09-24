@@ -21,9 +21,9 @@ export function Drawer({ open, title, subtitle, onClose, children }: DrawerProps
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="absolute inset-0 bg-navy/70 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="print-hide absolute inset-0 bg-navy/70 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative flex h-full w-[min(760px,92vw)] flex-col border-l border-line bg-surface shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+        <div className="print-hide flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div>
             <h2 className="text-base font-semibold">{title}</h2>
             {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}

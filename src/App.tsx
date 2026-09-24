@@ -31,7 +31,7 @@ export default function App() {
   const drawer = activeDrawer === 'none' ? null : DRAWERS[activeDrawer];
 
   return (
-    <div className="mx-auto flex max-w-[1600px] min-w-[1240px] flex-col gap-3 px-5 py-4">
+    <div className="app-shell mx-auto flex max-w-[1600px] min-w-[1240px] flex-col gap-3 px-5 py-4">
       <Header />
       <SetupBar />
 

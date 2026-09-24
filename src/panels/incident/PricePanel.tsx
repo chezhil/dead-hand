@@ -65,13 +65,14 @@ function PriceTooltip({ active, payload, bandPct }: { active?: boolean; payload?
   );
 }
 
-export function PricePanel() {
+/**
+ * The 3-feed / median / our-price chart with the shaded band. Exported so the public
+ * transparency page shows exactly the same picture.
+ */
+export function PriceChart({ height = 300, showOffScale = true }: { height?: number | string; showOffScale?: boolean }) {
   const prices = useStore((s) => s.prices);
   const bandPct = useStore((s) => s.bandPct);
-  const feedStatus = useStore((s) => s.feedStatus);
   const simTime = useStore((s) => s.simTime);
-  const scenario = useStore((s) => s.scenario);
-  const phase = useStore((s) => s.phase);
 
   const data: Row[] = useMemo(
     () => prices.map((p) => ({ ...p, band: [p.median * (1 - bandPct / 100), p.median * (1 + bandPct / 100)] })),
@@ -97,8 +98,65 @@ export function PricePanel() {
 
   const xMax = Math.max(600, Math.ceil(simTime / 300) * 300);
   const last = prices[prices.length - 1];
-  const dev = last ? (Math.abs(last.ours - last.median) / last.median) * 100 : 0;
   const offScale = last ? FEED_KEYS.filter((k) => last[k] < yMin || last[k] > yMax) : [];
+
+  return (
+    <div className="relative w-full min-w-0 overflow-hidden" style={{ height }}>
+      {showOffScale && offScale.length > 0 && (
+        <div className="absolute bottom-8 left-16 z-10 rounded border border-line bg-surface-2/90 px-2 py-0.5 text-[11px] text-muted">
+          {offScale.map((k) => `${feedLabel(k)} off-scale at ${fmtUSD(last![k])}`).join(' · ')}
+        </div>
+      )}
+      {data.length === 0 ? (
+        <div className="grid h-full place-items-center rounded-lg border border-dashed border-line text-sm text-muted">
+          Pick a scenario and press Start. The protocol runs itself.
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 4 }}>
+            <CartesianGrid stroke={C.line} strokeDasharray="0" vertical={false} strokeOpacity={0.6} />
+            <XAxis dataKey="t" type="number" domain={[0, xMax]} ticks={niceTicks(xMax)} tickFormatter={fmtT} {...axisProps} />
+            <YAxis
+              domain={[yMin, yMax]}
+              allowDataOverflow
+              tickFormatter={(v: number) => `$${v.toFixed(0)}`}
+              width={52}
+              {...axisProps}
+              axisLine={false}
+            />
+            <Tooltip content={<PriceTooltip bandPct={bandPct} />} cursor={{ stroke: C.muted, strokeDasharray: '3 3' }} isAnimationActive={false} />
+            <Area dataKey="band" stroke="none" fill={C.cyan} fillOpacity={0.09} isAnimationActive={false} activeDot={false} />
+            {FEED_KEYS.map((k) => (
+              <Line
+                key={k}
+                dataKey={k}
+                stroke={FEED_STYLE[k].color}
+                strokeWidth={1.25}
+                strokeDasharray={FEED_STYLE[k].dash}
+                strokeOpacity={0.85}
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            ))}
+            <Line dataKey="median" stroke={C.cyan} strokeWidth={3} dot={false} activeDot={{ r: 4, fill: C.cyan, stroke: C.surface, strokeWidth: 2 }} isAnimationActive={false} />
+            <Line dataKey="ours" stroke={C.orange} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: C.orange, stroke: C.surface, strokeWidth: 2 }} isAnimationActive={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+export function PricePanel() {
+  const prices = useStore((s) => s.prices);
+  const bandPct = useStore((s) => s.bandPct);
+  const feedStatus = useStore((s) => s.feedStatus);
+  const scenario = useStore((s) => s.scenario);
+  const phase = useStore((s) => s.phase);
+
+  const last = prices[prices.length - 1];
+  const dev = last ? (Math.abs(last.ours - last.median) / last.median) * 100 : 0;
   const note = SCENARIOS[scenario].reconstructionNote;
 
   return (
@@ -106,7 +164,6 @@ export function PricePanel() {
       title="Price: 3 reference feeds vs our execution price"
       subtitle={`Reference = median of 3 independent feeds. Shaded band = ±${fmtPct(bandPct)} published deviation band.`}
       right={phase === 'setup' ? <Pill tone="muted">Waiting for start</Pill> : <StatusChip status={feedStatus} />}
-      className="min-h-[430px]"
     >
       <div className="mb-2 flex flex-wrap items-end gap-x-6 gap-y-1">
         <Stat label="Reference median" value={last ? fmtUSD(last.median) : '—'} accent="text-cyan" />
@@ -117,7 +174,7 @@ export function PricePanel() {
           accent={dev > bandPct ? 'text-orange' : 'text-ink'}
           hint={last ? (dev > bandPct ? `outside ±${fmtPct(bandPct)} band` : `inside ±${fmtPct(bandPct)} band`) : undefined}
         />
-        <Legend />
+        <PriceLegend />
       </div>
 
       {note && (
@@ -126,50 +183,7 @@ export function PricePanel() {
         </div>
       )}
 
-      <div className="relative h-[300px]">
-        {offScale.length > 0 && (
-          <div className="absolute bottom-8 left-16 z-10 rounded border border-line bg-surface-2/90 px-2 py-0.5 text-[11px] text-muted">
-            {offScale.map((k) => `${feedLabel(k)} off-scale at ${fmtUSD(last![k])}`).join(' · ')}
-          </div>
-        )}
-        {data.length === 0 ? (
-          <div className="grid h-full place-items-center rounded-lg border border-dashed border-line text-sm text-muted">
-            Pick a scenario and press Start. The protocol runs itself.
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 4 }}>
-              <CartesianGrid stroke={C.line} strokeDasharray="0" vertical={false} strokeOpacity={0.6} />
-              <XAxis dataKey="t" type="number" domain={[0, xMax]} ticks={niceTicks(xMax)} tickFormatter={fmtT} {...axisProps} />
-              <YAxis
-                domain={[yMin, yMax]}
-                allowDataOverflow
-                tickFormatter={(v: number) => `$${v.toFixed(0)}`}
-                width={52}
-                {...axisProps}
-                axisLine={false}
-              />
-              <Tooltip content={<PriceTooltip bandPct={bandPct} />} cursor={{ stroke: C.muted, strokeDasharray: '3 3' }} isAnimationActive={false} />
-              <Area dataKey="band" stroke="none" fill={C.cyan} fillOpacity={0.09} isAnimationActive={false} activeDot={false} />
-              {FEED_KEYS.map((k) => (
-                <Line
-                  key={k}
-                  dataKey={k}
-                  stroke={FEED_STYLE[k].color}
-                  strokeWidth={1.25}
-                  strokeDasharray={FEED_STYLE[k].dash}
-                  strokeOpacity={0.85}
-                  dot={false}
-                  activeDot={false}
-                  isAnimationActive={false}
-                />
-              ))}
-              <Line dataKey="median" stroke={C.cyan} strokeWidth={3} dot={false} activeDot={{ r: 4, fill: C.cyan, stroke: C.surface, strokeWidth: 2 }} isAnimationActive={false} />
-              <Line dataKey="ours" stroke={C.orange} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: C.orange, stroke: C.surface, strokeWidth: 2 }} isAnimationActive={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+      <PriceChart height={380} />
     </Panel>
   );
 }
@@ -186,7 +200,7 @@ function Stat({ label, value, accent, hint }: { label: string; value: string; ac
   );
 }
 
-function Legend() {
+export function PriceLegend() {
   const items: { label: string; color: string; width: number; dash?: string }[] = [
     { label: 'Median', color: C.cyan, width: 3 },
     { label: 'Our price', color: C.orange, width: 2 },

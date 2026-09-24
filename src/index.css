@@ -44,3 +44,30 @@ body {
 input[type="range"] {
   accent-color: var(--color-cyan);
 }
+
+/* Printing (post-incident report): only the open drawer's printable content, on white. */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  .app-shell > :not([role="dialog"]),
+  [role="dialog"] .print-hide {
+    display: none !important;
+  }
+  [role="dialog"],
+  [role="dialog"] * {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    width: auto !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  [data-print-root] * {
+    color: #111 !important;
+    background: transparent !important;
+    border-color: #ccc !important;
+  }
+}

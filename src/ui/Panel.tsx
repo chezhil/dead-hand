@@ -20,7 +20,7 @@ export function Panel({ title, subtitle, right, className = '', bodyClassName = 
         </div>
         {right && <div className="shrink-0">{right}</div>}
       </header>
-      <div className={`min-h-0 flex-1 px-4 pb-4 ${bodyClassName}`}>{children}</div>
+      <div className={`min-h-0 min-w-0 flex-1 px-4 pb-4 ${bodyClassName}`}>{children}</div>
     </section>
   );
 }
