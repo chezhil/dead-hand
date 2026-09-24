@@ -1,0 +1,216 @@
+DEAD-HAND CONSOLE: BUILD BRIEF
+Paste this entire file into your AI coding agent. Read everything before writing code.
+
+==========================================================================
+SECTION 1: PROJECT OVERVIEW
+==========================================================================
+
+PROJECT: Dead-Hand Console
+Hackathon: ACM MarketSphere 2026, Round 2 (build round), Track 3: Flash-Crash Simulation.
+Client (fictional case): MochaTrade, a perpetual-futures trading app. Users are in India; its
+three founders are in San Francisco, asleep during India's peak trading hours.
+
+OUR ROUND 1 THESIS ("Dead-Hand Protocol"):
+Three people cannot out-react a flash crash, so every decision is made in advance and the
+system executes it without waiting for humans. In the first 60 minutes, humans make
+exactly ONE call: confirming the auto-queued makegood (compensation) list.
+
+KEY RULES FROM ROUND 1 (the app must enforce these exactly):
+- Price = median of 3 independent reference feeds. If feeds disagree, liquidations pause.
+- Asymmetric circuit breaker: halt NEW LEVERAGED OPENS only. Top-up, reduce, close and
+  withdraw always stay open.
+- Deviation Doctrine: "We pay when our price was wrong. We never pay because the market was."
+  deviation% = |our execution price - reference median| / reference median x 100.
+  If deviation > published band (default 2.00%), the user gets an automatic makegood.
+  Makegood restores the position; it never pays a profit.
+- The band is published before launch and CANNOT change during a crisis.
+- Integrity Reserve: 10% of gross trading fees, in a segregated account, balance public.
+  If ever short, pay pro-rata and disclose.
+- One fractional on-call responder in IST covers the sleep gap.
+
+TIMELINE THE APP SIMULATES (sim time from crash start):
+T+00:00  Watchdog flags feed divergence (DETECT)
+T+00:01  IST responder paged
+T+00:02  New leveraged opens halted; exits stay live (CONTAIN)
+T+00:04  Responder acknowledges
+T+00:05  Status page live + push to every open position
+T+00:15  Deviation test runs on every liquidation (DECIDE)
+T+00:30  Makegoods queued; "Confirm makegoods" button appears (the one human call)
+T+01:00  Public post: feed data, verdict, what we owe (DISCLOSE)
+
+WHAT THE APP IS:
+A single-page web app with no backend and no login. All data is simulated. The user picks
+a scenario, presses Start, and watches the protocol run the incident automatically in
+fast-forward. The only thing the user clicks during the crash is "Confirm makegoods".
+It must feel calm, not chaotic: it is an autopilot console, not a wall of alarms.
+
+THREE SCENARIOS:
+1. "System fault": Feed A glitches; our execution price follows the bad feed.
+   Many liquidations deviate > 2% -> makegoods owed. (Matches Round 1 Case A:
+   median $402.10, ours $388.40, deviation 3.41%, owed $13.70 per unit.)
+2. "Real market move": All three feeds fall together; our price tracks them.
+   Deviations < 2% -> no makegoods, data still published. (Case B: median $351.00,
+   ours $349.60, deviation 0.40%.)
+3. "Historical replay": Price shape approximating a publicly documented crypto flash crash,
+   labelled clearly in the UI as "approximate reconstruction".
+
+VISUAL STYLE (match our Round 1 deck):
+Dark navy background (#0A1020), panel surface (#0F1A30), cyan primary (#22C3D6),
+orange for alerts/warnings (#FF8C42), green for good/resolved (#3DD68C), muted text (#8A97B0).
+Rounded panels, clean sans-serif, numbers in tabular figures. Calm, not flashy.
+Desktop-first (demoed on a laptop/projector at 1440px wide), but must not break at 1280px.
+
+TECH STACK (fixed, do not change):
+Vite + React + TypeScript, Tailwind CSS, Zustand for state, Recharts for charts.
+No backend, no router needed (modals/drawers for secondary views).
+
+TEAM SPLIT:
+Agent A (Chezhil, Incident Lead): scaffold, types, store, engine, layout, detect & contain panels.
+Agent B (Kaustubh, Comms Lead): message templates, comms feed, social panel, public/user views, report.
+Agent C (Hamza, Ops & Treasury): deviation test, liquidations, makegoods, reserve, responder, log, comparison.
+
+==========================================================================
+SECTION 2: SHARED CONTRACT (identical in all three files)
+==========================================================================
+
+Do not change these files unless you own them. If you need a change, tell the owner.
+Build against the fixture if the engine isn't ready yet.
+
+FOLDER OWNERSHIP
+src/core/                  -> Agent A (types, store, engine, scenarios, fixture)
+src/panels/incident/       -> Agent A
+src/panels/comms/          -> Agent B
+src/panels/ops/            -> Agent C
+src/lib/deviation.ts       -> Agent C (pure function, imported by the engine)
+src/content/templates.ts   -> Agent B (message templates, imported by the engine)
+src/App.tsx (layout grid)  -> Agent A; others only get a named slot
+
+TYPES (src/core/types.ts)
+type ScenarioId = 'system_fault' | 'market_move' | 'historical_replay';
+type Phase = 'setup' | 'running' | 'paused' | 'ended';
+type Stage = 'detect' | 'contain' | 'decide' | 'disclose';
+
+interface PricePoint { t: number; feedA: number; feedB: number; feedC: number;
+  median: number; ours: number; }                       // t = sim seconds since crash
+interface SignalPoint { t: number; liquidationsPerMin: number; ticketsPerMin: number;
+  socialMentionsPerMin: number; }
+interface OrderTypes { newLeverage: boolean; topUp: boolean; reduce: boolean;
+  close: boolean; withdraw: boolean; }                   // true = open
+interface Liquidation { id: string; t: number; userId: string; userName: string;
+  side: 'long' | 'short'; qty: number; referenceMedian: number; executionPrice: number;
+  deviationPct: number | null; verdict: 'pending' | 'makegood' | 'no_makegood';
+  amountOwed: number; status: 'untested' | 'tested' | 'queued' | 'confirmed' | 'paid'; }
+type Channel = 'status_page' | 'push' | 'x_post' | 'email';
+interface CommsMessage { id: string; templateId: string; t: number; channel: Channel;
+  title: string; body: string; status: 'scheduled' | 'sent'; }
+interface LogEntry { id: string; t: number; actor: 'system' | 'responder' | 'human';
+  stage: Stage; text: string; }
+interface Responder { status: 'idle' | 'paged' | 'acknowledged' | 'on_it';
+  pagedAt?: number; ackAt?: number; name: string; }
+
+STORE (src/core/store.ts, Zustand), state:
+phase, scenario, speed (1 | 20 | 60), simTime (seconds, 0-3600), stage,
+bandPct (default 2.0), bandLocked, feedStatus ('agree' | 'diverging' | 'liquidations_paused'),
+prices: PricePoint[], signals: SignalPoint[], orderTypes, liquidations: Liquidation[],
+comms: CommsMessage[], log: LogEntry[], responder,
+reserveStart (default 250000), reserveBalance, humanCallsUsed (0 or 1),
+makegoodButtonVisible, selectedUserId (string | null), activeDrawer
+('none' | 'comparison' | 'public_page' | 'user' | 'report').
+
+Actions: setScenario, setBand (ignored if bandLocked), setSpeed, start (locks band),
+pause, resume, reset, confirmMakegoods (humanCallsUsed=1, queued->confirmed->paid,
+reserve drops, logs a 'human' entry), selectUser(id), openDrawer(name), closeDrawer().
+
+ENGINE (src/core/engine.ts), owned by Agent A:
+Ticks every 250ms of real time and advances simTime by 0.25 x speed.
+Generates prices/signals from the scenario, fires timeline events at fixed times, creates
+liquidations, calls runDeviationTest() (from Agent C) at T+15:00 and on every new
+liquidation afterwards, and schedules comms from TEMPLATES (from Agent B) by templateId.
+Social mentions rise steeply from T+5 min, then flatten after the status-page message is
+sent (the engine applies a damping factor once a 'status_page' message is 'sent').
+
+CONTRACT FUNCTIONS
+// src/lib/deviation.ts (Agent C)
+export function runDeviationTest(liq: Liquidation, bandPct: number): Liquidation
+// sets deviationPct, verdict, amountOwed, status='tested'.
+// amountOwed = max(0, unfavourable price difference) x qty. Long liquidated below median,
+// or short above median, is unfavourable. Never pays profit.
+
+// src/content/templates.ts (Agent B)
+export const TEMPLATES: { id: string; channel: Channel; fireAt: number;  // sim seconds
+  scenarios: ScenarioId[] | 'all';
+  build: (ctx: TemplateContext) => { title: string; body: string } }[];
+interface TemplateContext { scenario: ScenarioId; simTime: number; median: number;
+  ours: number; bandPct: number; makegoodCount: number; totalOwed: number;
+  reserveBalance: number; }
+
+FIXTURE (src/core/fixture.ts), owned by Agent A, shipped FIRST:
+A full store snapshot frozen at T+35:00 of the system_fault scenario (prices, signals,
+~40 liquidations, comms, log entries, responder acknowledged, button visible).
+Agents B and C build their panels against this until the engine is live
+(load it with ?fixture=1 in the URL).
+
+TIME FORMAT everywhere in the UI: "T+MM:SS". Currency: USD with 2 decimals.
+
+GOLDEN RULE: stay inside your own folders. Never modify src/core/ unless you are Agent A.
+
+==========================================================================
+SECTION 3: YOUR BRIEF, AGENT A (Chezhil, Incident Lead)
+Engine, layout, detection and containment
+==========================================================================
+
+YOUR JOB: the skeleton everything plugs into, plus the "detect & contain" panels.
+
+SHIP FIRST (within the first hour, push to main):
+1. Vite + React + TS + Tailwind + Zustand + Recharts scaffold.
+2. src/core/types.ts and store.ts exactly as in the contract.
+3. src/core/fixture.ts (store frozen at T+35:00, system_fault), and a dev toggle
+   ?fixture=1 in the URL that loads it.
+4. App.tsx layout with empty named slots for the other agents' panels:
+   <CommsFeedSlot/>, <SocialSlot/>, <LiquidationsSlot/>, <ReserveSlot/>, <MakegoodSlot/>,
+   <ResponderSlot/>, <LogSlot/>, plus drawers for comparison, public page, user, report.
+5. Stubs for runDeviationTest and TEMPLATES so the engine compiles before B and C deliver.
+
+THEN BUILD:
+- Engine (engine.ts) + the three scenarios (scenarios.ts): deterministic, seeded random,
+  so every demo run looks identical. Historical replay is labelled "approximate reconstruction".
+- Watchdog logic: feedStatus becomes 'diverging' if any feed is >0.5% from the median of the
+  other two; 'liquidations_paused' while 2 of 3 disagree.
+- Setup bar: scenario picker, band slider (0.5-5.0%, step 0.25), speed buttons (1x, 20x, 60x),
+  Start / Pause / Reset. When Start is pressed, the slider greys out and shows a lock icon
+  with the text "Band locked: published pre-launch".
+- Header: title, two live clocks (IST and San Francisco, derived from a fixed crash start
+  of 14:30 IST so SF shows ~02:00 AM), a stage strip DETECT -> CONTAIN -> DECIDE -> DISCLOSE
+  highlighting the current stage, and a "Human calls: 0 / 1" counter.
+- Price panel (the biggest panel): Recharts line chart with feed A/B/C (thin), median (thick
+  cyan), our price (orange). Shaded band of +/- bandPct around the median. Status chip:
+  "Feeds agree" / "Feed divergence detected" / "Liquidations paused: feeds disagree".
+- Signals panel: liquidations/min and support tickets/min as small live charts with
+  current-value numbers.
+- Circuit breaker panel: five order types as rows with open/halted pills. At T+00:02,
+  "New leverage" flips to halted (orange); the other four stay open (green) with a note
+  "Exits never freeze".
+
+LAYOUT (1440px):
+Row 1: header. Row 2: setup bar.
+Main grid, 3 columns: left (wide) = price panel, signals below it;
+middle = circuit breaker, then comms feed slot, then social slot;
+right = responder slot, then incident log slot (tall, scrolls).
+Bottom row full width: liquidations table slot (left, wide), reserve + makegood slots (right).
+A small toolbar row: buttons "Compare with manual response", "Public transparency page",
+"Post-incident report" -> open the drawers.
+
+DONE WHEN: pressing Start on each scenario runs a full 60 simulated minutes, all timeline
+events fire at the right times, and the other agents' panels drop into their slots.
+
+==========================================================================
+SECTION 4: INTEGRATION PLAN (whole team)
+==========================================================================
+1. Hour 0-1: Agent A pushes the scaffold, contract, fixture, and slots. Nobody else starts
+   coding until this is on main.
+2. Parallel build: each person works on their own branch, touching only their own folders,
+   testing with ?fixture=1.
+3. Merge order: A's engine first, then C's deviation function, then B's templates,
+   then all panels.
+4. Final pass: run all three scenarios end to end at 20x speed, fix timing and number
+   mismatches, rehearse the 3-minute demo.

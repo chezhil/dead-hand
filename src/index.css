@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #0A1020;
+  --color-surface: #0F1A30;
+  --color-surface-2: #142340;
+  --color-line: #1F2E4D;
+  --color-ink: #E6ECF5;
+  --color-muted: #8A97B0;
+  --color-cyan: #22C3D6;
+  --color-orange: #FF8C42;
+  --color-green: #3DD68C;
+  --color-feed-a: #8B7CF6;
+  --color-feed-b: #D46AA8;
+  --color-feed-c: #C7CEDB;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  background: var(--color-navy);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers never jitter as they tick. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+input[type="range"] {
+  accent-color: var(--color-cyan);
+}
