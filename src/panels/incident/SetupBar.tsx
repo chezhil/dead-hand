@@ -4,7 +4,7 @@ import { fmtPct } from '../../core/format';
 import type { Speed } from '../../core/types';
 import { LockIcon, PauseIcon, PlayIcon, ResetIcon } from '../../ui/icons';
 
-const SPEEDS: Speed[] = [1, 20, 60];
+const SPEEDS: Speed[] = [1, 20, 60, 120];
 
 const btn = 'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40';
 
@@ -20,7 +20,7 @@ export function SetupBar() {
   const meta = SCENARIOS[scenario];
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-line bg-surface px-4 py-3">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-line bg-surface px-4 py-3">
       <div className="min-w-0">
         <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-muted uppercase">Scenario</div>
         <div className="flex rounded-lg border border-line bg-navy p-0.5" role="radiogroup" aria-label="Scenario">
@@ -44,7 +44,7 @@ export function SetupBar() {
         </div>
       </div>
 
-      <div className="min-w-0 max-w-[360px] flex-1 basis-[260px] text-xs leading-snug text-muted">
+      <div className="min-w-0 max-w-[320px] flex-1 basis-[160px] text-xs leading-snug text-muted">
         <span className="font-medium text-ink">{meta.tagline}.</span> {meta.description}
         {meta.reconstructionNote && (
           <div className="mt-1 inline-flex rounded border border-orange/30 bg-orange/10 px-1.5 py-0.5 text-[11px] font-medium text-orange">
@@ -113,7 +113,7 @@ export function SetupBar() {
             <PlayIcon /> Resume
           </button>
         )}
-        {phase === 'ended' && <span className="text-sm font-medium text-green">Run complete · T+60:00</span>}
+        {phase === 'ended' && <span className="text-sm font-medium text-green">Run complete</span>}
         <button onClick={reset} disabled={phase === 'setup'} className={`${btn} border border-line text-muted hover:text-ink`}>
           <ResetIcon /> Reset
         </button>

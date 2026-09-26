@@ -62,7 +62,7 @@ Two fields were added on top of the shared contract: `makegoodsConfirmedAt`
 ## Engine
 
 `advance(state, to)` in `src/core/engine.ts` is pure: it replays every integer sim second
-up to `to`, so results are identical at 1x, 20x, 60x or when jumping straight to T+35:00.
+up to `to`, so results are identical at 1x, 20x, 60x, 120x or when jumping straight to T+35:00.
 `startEngine(store)` ticks every 250 ms and advances `simTime` by `0.25 × speed`.
 
 | Sim time | Event |

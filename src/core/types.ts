@@ -4,7 +4,7 @@
 export type ScenarioId = 'system_fault' | 'market_move' | 'historical_replay';
 export type Phase = 'setup' | 'running' | 'paused' | 'ended';
 export type Stage = 'detect' | 'contain' | 'decide' | 'disclose';
-export type Speed = 1 | 20 | 60;
+export type Speed = 1 | 20 | 60 | 120;
 export type FeedStatus = 'agree' | 'diverging' | 'liquidations_paused';
 export type DrawerName = 'none' | 'comparison' | 'public_page' | 'user' | 'report';
 

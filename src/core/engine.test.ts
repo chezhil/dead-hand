@@ -160,3 +160,14 @@ describe('reopening rule', () => {
     }
   });
 });
+
+describe('120x speed', () => {
+  it.each(ALL)('%s: 30-second ticks give the identical run', (sc) => {
+    const slow = runTo(sc, SIM_END, 5);
+    const fast = runTo(sc, SIM_END, 0.25 * 120);
+    expect(fast.liquidations).toEqual(slow.liquidations);
+    expect(fast.log).toEqual(slow.log);
+    expect(fast.comms).toEqual(slow.comms);
+    expect(fast.orderTypes).toEqual(slow.orderTypes);
+  });
+});
