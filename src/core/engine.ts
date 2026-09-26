@@ -6,7 +6,7 @@
 import type { Liquidation, LogEntry, ScenarioId, SimState, Stage, TemplateContext } from './types';
 import { SCENARIOS, liquidationScript, pricePointAt, scenarioSeed, ticketScale, vnoise } from './scenarios';
 import { feedDeviations, feedLabel, feedStatusOf, outlierFeeds } from './watchdog';
-import { fmtInt, fmtPct, fmtUSD, round2 } from './format';
+import { fmtInt, fmtPct, fmtT, fmtUSD, round2 } from './format';
 import { runDeviationTest } from '../lib/deviation';
 import { TEMPLATES } from '../content/templates';
 
@@ -17,6 +17,12 @@ export const PRICE_STEP = 5;
 /** A signal point is recorded every SIGNAL_STEP sim seconds. */
 export const SIGNAL_STEP = 10;
 export const RESPONDER_NAME = 'Ananya Rao';
+/**
+ * Reopening rule (published in advance, like the band): once halted, new leveraged opens
+ * reopen automatically after all three feeds have agreed for this many sim seconds straight.
+ * No human decides it. If the feeds split again after reopening, new leverage halts again.
+ */
+export const REOPEN_AFTER_AGREE = 15 * 60;
 
 export const T = {
   detect: 0,
@@ -74,7 +80,16 @@ export function createInitialState(scenario: ScenarioId = 'system_fault'): SimSt
     selectedUserId: null,
     activeDrawer: 'none',
     makegoodsConfirmedAt: null,
+    leverageHaltedAt: null,
+    leverageReopenedAt: null,
+    feedsAgreeSince: null,
   };
+}
+
+/** When new leverage will reopen if the feeds keep agreeing (null = not halted, or feeds disagree now). */
+export function projectedReopenAt(s: Pick<SimState, 'orderTypes' | 'leverageHaltedAt' | 'feedsAgreeSince'>): number | null {
+  if (s.orderTypes.newLeverage || s.leverageHaltedAt === null || s.feedsAgreeSince === null) return null;
+  return Math.max(s.leverageHaltedAt, s.feedsAgreeSince + REOPEN_AFTER_AGREE);
 }
 
 export function makegoodTotals(liqs: Liquidation[]): { count: number; total: number } {
@@ -115,6 +130,7 @@ export function templateContext(s: SimState): TemplateContext {
     reserveBalance: s.reserveBalance,
     totalPaid: payout.paid,
     paidRatio: payout.paidRatio,
+    leverageReopenedAt: s.leverageReopenedAt,
   };
 }
 
@@ -201,6 +217,7 @@ function processSecond(w: Work, sec: number) {
     const status = feedStatusOf(p);
     if (sec > 0 && status !== w.feedStatus) addLog(w, sec, 'system', stage, `Watchdog: ${statusSentence(status)}`);
     w.feedStatus = status;
+    w.feedsAgreeSince = status === 'agree' ? (w.feedsAgreeSince ?? sec) : null;
   }
 
   // New liquidations from the script. After T+15:00 each is tested as it happens.
@@ -241,7 +258,15 @@ function processSecond(w: Work, sec: number) {
       break;
     case T.halt:
       w.orderTypes = { ...w.orderTypes, newLeverage: false };
-      addLog(w, sec, 'system', 'contain', 'CONTAIN: new leveraged opens halted. Top-up, reduce, close and withdraw stay open.');
+      w.leverageHaltedAt = sec;
+      w.leverageReopenedAt = null;
+      addLog(
+        w,
+        sec,
+        'system',
+        'contain',
+        `CONTAIN: new leveraged opens halted. Top-up, reduce, close and withdraw stay open. Reopens automatically once all three feeds agree for ${REOPEN_AFTER_AGREE / 60} minutes.`,
+      );
       break;
     case T.ack:
       w.responder = { ...w.responder, status: 'acknowledged', ackAt: sec };
@@ -290,6 +315,27 @@ function processSecond(w: Work, sec: number) {
         `DISCLOSE: public post with feed data and verdict. ${count > 0 ? `${count} makegoods, ${fmtUSD(total)} owed` : 'No makegoods owed'}. Reserve ${fmtUSD(w.reserveBalance)}.`,
       );
       break;
+    }
+  }
+
+  // Reopening rule: automatic, no human call. Checked after the halt so T+02:00 always halts first.
+  if (w.leverageHaltedAt !== null) {
+    const reopenAt = projectedReopenAt(w);
+    if (!w.orderTypes.newLeverage && reopenAt !== null && sec >= reopenAt) {
+      w.orderTypes = { ...w.orderTypes, newLeverage: true };
+      w.leverageReopenedAt = sec;
+      addLog(
+        w,
+        sec,
+        'system',
+        'contain',
+        `CONTAIN: new leveraged opens reopened automatically. All three feeds have agreed for ${REOPEN_AFTER_AGREE / 60} minutes (since ${fmtT(w.feedsAgreeSince!)}).`,
+      );
+    } else if (w.orderTypes.newLeverage && w.feedStatus !== 'agree') {
+      w.orderTypes = { ...w.orderTypes, newLeverage: false };
+      w.leverageHaltedAt = sec;
+      w.leverageReopenedAt = null;
+      addLog(w, sec, 'system', 'contain', `CONTAIN: feeds disagree again; new leveraged opens halted until they agree for ${REOPEN_AFTER_AGREE / 60} minutes.`);
     }
   }
 

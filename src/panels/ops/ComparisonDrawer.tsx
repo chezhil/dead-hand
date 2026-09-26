@@ -92,6 +92,7 @@ export function ComparisonDrawer() {
   const comms = useStore((s) => s.comms);
   const confirmedAt = useStore((s) => s.makegoodsConfirmedAt);
   const humanCallsUsed = useStore((s) => s.humanCallsUsed);
+  const reopenedAt = useStore((s) => s.leverageReopenedAt);
   const { count, total } = useMakegoodTotals();
 
   const started = phase !== 'setup';
@@ -113,6 +114,9 @@ export function ComparisonDrawer() {
       milestone: true,
       tone: 'orange',
     },
+    ...(reopenedAt !== null
+      ? [{ t: reopenedAt, label: 'New leverage reopens', detail: 'Automatic: all three feeds agreed for 15 minutes. No human call.', done: true, tone: 'green' as const }]
+      : []),
     ...(confirmedAt !== null
       ? [{ t: confirmedAt, label: 'Human call: confirmed', detail: 'The one human decision: confirm the pre-computed list.', done: true, tone: 'green' as const }]
       : []),

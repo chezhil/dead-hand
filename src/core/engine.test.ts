@@ -122,3 +122,41 @@ describe('comms', () => {
     expect(s.comms.find((c) => c.t === 1800)!.title).toMatch(/no makegoods/i);
   });
 });
+
+describe('reopening rule', () => {
+  // All three feeds agree from these times onward, so reopening lands 15 minutes later.
+  const EXPECTED: Record<ScenarioId, number> = { system_fault: 28 * 60, market_move: 15 * 60 + 55, historical_replay: 18 * 60 };
+
+  it.each(ALL)('%s: halts at T+02:00 and reopens automatically after 15 minutes of feed agreement', (sc) => {
+    const reopenAt = EXPECTED[sc];
+    const before = runTo(sc, reopenAt - 1);
+    expect(before.orderTypes.newLeverage).toBe(false);
+    expect(before.leverageHaltedAt).toBe(T.halt);
+    const after = runTo(sc, reopenAt);
+    expect(after.orderTypes.newLeverage).toBe(true);
+    expect(after.leverageReopenedAt).toBe(reopenAt);
+    expect(after.feedsAgreeSince).toBe(reopenAt - 15 * 60);
+    expect(after.log.at(-1)!.text).toMatch(/reopened automatically/);
+    const end = runTo(sc, SIM_END);
+    expect(end.orderTypes).toEqual({ newLeverage: true, topUp: true, reduce: true, close: true, withdraw: true });
+    expect(end.log.filter((e) => /reopened automatically/.test(e.text))).toHaveLength(1);
+  });
+
+  it('re-halts if the feeds split again after reopening', () => {
+    let s = runTo('market_move', EXPECTED.market_move);
+    expect(s.orderTypes.newLeverage).toBe(true);
+    // Force a disagreement on the next price sample.
+    s = { ...s, feedStatus: 'agree' };
+    const forced = advance({ ...s, feedsAgreeSince: null, feedStatus: 'diverging' }, s.simTime + 1);
+    expect(forced.orderTypes.newLeverage).toBe(false);
+    expect(forced.leverageHaltedAt).toBe(s.simTime + 1);
+    expect(forced.log.at(-1)!.text).toMatch(/halted until they agree/);
+  });
+
+  it('the T+30 status update says when new leverage came back', () => {
+    for (const sc of ALL) {
+      const upd = runTo(sc, T.makegoodsQueued).comms.find((c) => c.t === T.makegoodsQueued)!;
+      expect(upd.body).toMatch(/reopened automatically/);
+    }
+  });
+});

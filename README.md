@@ -72,6 +72,7 @@ up to `to`, so results are identical at 1x, 20x, 60x or when jumping straight to
 | T+02:00 | New leveraged opens halted; exits stay live (CONTAIN) |
 | T+04:00 | Responder acknowledges |
 | T+05:00 | Status page + push (from `TEMPLATES`), responder on it |
+| After 15 min of feed agreement | New leveraged opens reopen automatically (T+28:00 / T+15:55 / T+18:00 by scenario); they re-halt if the feeds split again |
 | T+15:00 | Deviation test on every liquidation so far, then on each new one (DECIDE) |
 | T+30:00 | Makegoods queued; `makegoodButtonVisible = true` |
 | T+60:00 | Public post (DISCLOSE); run ends |

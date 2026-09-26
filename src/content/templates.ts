@@ -1,11 +1,17 @@
 // OWNER: Agent B (Kaustubh). Message templates the engine sends automatically.
 // Every number comes from ctx; nothing is hard-coded. Tone: calm, factual, non-defensive.
 import type { Template, TemplateContext } from '../core/types';
-import { fmtPct, fmtUSD } from '../core/format';
+import { fmtPct, fmtT, fmtUSD } from '../core/format';
 
 export type { TemplateContext };
 
 const users = (n: number) => `${n} ${n === 1 ? 'user' : 'users'}`;
+
+/** One sentence on the circuit breaker's state, for the later updates. */
+const leverageLine = (ctx: TemplateContext) =>
+  ctx.leverageReopenedAt !== null
+    ? ` New leverage reopened automatically at ${fmtT(ctx.leverageReopenedAt)}, once all three feeds had agreed for 15 minutes.`
+    : ' New leverage stays paused until all three feeds agree for 15 minutes; exits remain open.';
 
 export const TEMPLATES: Template[] = [
   {
@@ -68,13 +74,15 @@ export const TEMPLATES: Template[] = [
               `are queued and will be paid from the Integrity Reserve (balance ${fmtUSD(ctx.reserveBalance)}).` +
               (ctx.totalOwed > ctx.reserveBalance
                 ? ` That is less than we owe, so every makegood will be paid pro-rata (${fmtPct((ctx.reserveBalance / ctx.totalOwed) * 100, 1)}) and the shortfall disclosed.`
-                : ''),
+                : '') +
+              leverageLine(ctx),
           }
         : {
             title: 'Deviation test complete: no makegoods owed',
             body:
               `We tested every liquidation against the reference median. All executions were within the published ` +
-              `${fmtPct(ctx.bandPct)} band: the market moved, our price did not. No makegoods are owed. Full feed data follows at T+60:00.`,
+              `${fmtPct(ctx.bandPct)} band: the market moved, our price did not. No makegoods are owed. Full feed data follows at T+60:00.` +
+              leverageLine(ctx),
           },
   },
   {

@@ -91,6 +91,8 @@ export interface TemplateContext {
   totalPaid: number;
   /** Added by Agent A: fraction of each makegood paid (1 = in full, <1 = pro-rata). */
   paidRatio: number;
+  /** Added by Agent A: when new leveraged opens reopened automatically (null = still halted). */
+  leverageReopenedAt: number | null;
 }
 
 export interface Template {
@@ -131,6 +133,12 @@ export interface SimState {
   activeDrawer: DrawerName;
   /** Not in the original contract: sim time the human pressed "Confirm makegoods". */
   makegoodsConfirmedAt: number | null;
+  /** Added by Agent A: when the breaker last halted new leveraged opens (null = never). */
+  leverageHaltedAt: number | null;
+  /** Added by Agent A: when new leveraged opens reopened automatically (null = still halted / never halted). */
+  leverageReopenedAt: number | null;
+  /** Added by Agent A: start of the current unbroken run of all three feeds agreeing (null = they disagree now). */
+  feedsAgreeSince: number | null;
 }
 
 export interface SimActions {
